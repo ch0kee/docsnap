@@ -95,11 +95,12 @@ handleContentUpdate :: Handler App App ()
 handleContentUpdate = method GET getter
   where
     getter = do
-      ccp <- getParam "c" --client content parameter
+      ccp <- getParam "d" --get data
       scRef <- gets _content --stored content reference 
       case ccp of
         Nothing -> updateClient scRef
-        Just c  -> storeContent scRef c
+        Just c  | (not.B.null) c -> storeContent scRef c
+                | otherwise -> storeContent scRef ""
         
     updateClient scRef = do
       sc <- liftIO $ readIORef scRef --stored content
@@ -107,6 +108,7 @@ handleContentUpdate = method GET getter
                  
     storeContent scRef c = do
       liftIO $ writeIORef scRef c
+      liftIO $ B.putStrLn c
       updateClient scRef --itt ujra kiolvassuk, hatha szukseg van ra
               
       --writeBS $ (E.encodeUtf8 . T.toLower . E.decodeUtf8) s

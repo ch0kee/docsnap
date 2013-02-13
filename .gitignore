@@ -1,0 +1,4 @@
+# Snap logs
+/log/access.log
+/log/error.log
+
