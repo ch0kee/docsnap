@@ -33,7 +33,8 @@ Executable DocSnap
     time                      >= 1.1     && < 1.5,
     xmlhtml                   >= 0.1     && < 0.3,
     data-lens,
-    comonad-transformers
+    comonad-transformers,
+    aeson
 
   if flag(development)
     build-depends:

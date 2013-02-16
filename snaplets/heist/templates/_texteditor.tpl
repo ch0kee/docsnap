@@ -2,17 +2,18 @@
 <textarea id="idEditorBox" class="editorinput" onkeyup="storeContent()"  />
  -->
 <script>
-var suppressOnInput = false;
-/*
-var obj = new Object();
-obj.list = new Array();
-obj.list[0] = "ListFirstElement";
-obj.list[1] = "ListSecondElement";
 
-alert(enyo.json.stringify(obj));
+var dbg = null;
 
-equals to {"list":["ListFirstElement","ListSecondElement"]}
-*/
+function Insert(index, content) {
+	this.index = index;
+	this.content = content;
+}
+
+function Remove(index, length) {
+  this.index = index;
+  this.length = length;
+}
 
 //adatvaltozast kezelo kind
 enyo.kind({
@@ -21,79 +22,119 @@ enyo.kind({
   removes: new Array(),
 
 	published: {
-		content: ""
+		//content: "",
+		checkStart: 0, //itt kezdodik az ellenorzes
+		checkLength: 0  //ilyen hosszan
+		
 	},
 
 	getAsJSON: function() {
 		var obj = new Object();
 		obj.inserts = this.inserts;
-    obj.removes = this.removes;
+    //obj.removes = this.removes;
     return JSON.stringify(obj);
 	},
+
 
 	resetChanges: function() {
 		this.inserts = new Array();
 		this.removes = new Array();
 	},
 
+	insert: function(inIndex, inContent) {
+		var i = new Insert(inIndex, inContent);
+		this.inserts.push(i);
+	},
+  remove: function(inIndex, inLength) {
+    var r = new Remove(inIndex, inLength);
+    this.removes.push(r);	    
+  }
+/*
 	//valtozott a tartalom, szinkronizaljunk	
 	contentChanged: function(inOldValue) {
-		this.inserts.push("vupsz");
-	}
+	}*/
 });
-
 //szerkesztodoboz
 enyo.kind({
 	  name: "EditorArea",
 	  kind: enyo.RichText,
     value: "",
     defaultFocus: true,
-    
+    allowHtml: true,
     syncInterval: 5000,
+    suppressInputChange: false,
 
 	  contentTracker: new ContentTracker(),
 	  
     handlers: {
-        oninput: "inputChange"
+        oninput: "inputChange",
     },
 
 	  //sajat modositasok osszeallitasa
 	  createSyncData: function() {
-		  this.contentTracker.setContent(this.getValue());
 		  var so = this.contentTracker.getAsJSON();
+		  console.log(so);
 		  this.contentTracker.resetChanges();
 		  return so;
 	  },
-
 	  //sajat textbox frissitese
     updateContent: function(inSender, inResponse) {
-      console.log("updateContent");
+      //console.log(this.getValue());
+      //
+    	//this.setValue(inResponse);
     },
 		  
 	  //elkuldjuk a sajat tartalmat es visszakapjuk mi legyen kiirva
 	  //de ugy, hogy a kuldes utan tortent modositasok is megmaradnak
 	  syncContent: function() {
-	    var x = new enyo.Ajax({url:"cupdate"});
-    	x.go({
-        	d : this.createSyncData()
-        	});
-    	x.response(this.updateContent);
+	   /* var x = new enyo.Ajax({
+		    url:"cupdate",
+		    method:"POST",
+		    postBody: 'd=' + this.createSyncData()
+			    });
+    	x.go();
+    	x.response(this.updateContent);*/
 	  },
 
+	  //kiszurjuk a nem kezelheto tartalmat
+	  filterValue: function() {
+		  var v = this.getValue();
+		  //csak ezek a karakterek maradhatnak
+		  var patt=/([^a-z0-9\s;&\+=-])/gi;
+		  var vn=v.replace(patt,"");
+		  this.suppressInputChange = true;
+		  this.setValue(vn);
+      this.suppressInputChange = false;
+	  }
+	  ,
 
 	  //ket szinkronizacio kozott folyamatosan gyujtjuk az adatokat,
 	  //egymas melletti inserteket osszemergelunk, stb.
       //csak intelligensen..
 	  inputChange: function(inSender, inEvent) {
-		  //alert(this.sentContent);
-		  //alert(lastContent);
-		    // retrieve new input value
-		    //newInputValue = this.$.myInput.getValue();
-		    //var s = enyo.json.stringify(inEvent); 
-		    //alert(inEvent.target.value);
-		    // do something in response
-		    //nem engedjuk tovabb ? 
-		    return true; 
+		  if (this.suppressInputChange) {
+			  return;
+		  }
+		  this.filterValue();
+		  //
+		},
+		setCaretPosition: function(idx) {
+	    this.getSelection().removeAllRanges();
+	    var r = document.createRange();
+	    r.setStart(this.node, idx);
+	    r.setEnd(this.node, idx);     
+	    this.getSelection().addRange( r);
+		},
+		getCaretPosition: function() {
+			var s = this.getSelection();
+			var startNode = s.anchorNode;
+			var loc = s.anchorOffset;
+
+			for(var n = startNode.previousSibling; n != null; n = n.previousSibling) {
+				loc += n.textContent.length;
+			}
+      //console.log('caretpos: '+loc);
+			return loc;
 		},
 		
     create: function() {

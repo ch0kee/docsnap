@@ -1,4 +1,6 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 ------------------------------------------------------------------------------
 -- | This module is where all the routes and handlers are defined for your
@@ -16,6 +18,7 @@ import  Control.Monad.Trans
 import           Control.Applicative hiding (empty)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import           Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
@@ -40,6 +43,11 @@ import qualified Text.XmlHtml as X
 import          Data.IORef
 
 import Control.Arrow hiding (app)
+
+import Data.Aeson.TH
+import qualified Data.Aeson as A
+--import Text.JSON
+--import Text.JSON.String
 
 -- elso spliceom, kimasoltam
 {-|
@@ -90,13 +98,22 @@ fromMaybeContent :: Maybe ByteString -> ByteString
 fromMaybeContent (Just bs) = bs
 fromMaybeContent Nothing = B.empty
 
+data Insert = Insert { index :: Int, content :: String }
+  deriving (Show)
+
+data SyncObject = SyncObject { inserts :: [Insert]  }
+  deriving (Show)
+$(deriveJSON id ''Insert)
+-- $(deriveJSON id ''Remove)
+$(deriveJSON id ''SyncObject)
+
 -- Lekezeljuk az uj adatot
 handleContentUpdate :: Handler App App ()
-handleContentUpdate = method GET getter
+handleContentUpdate = method POST getter
   where
     getter = do
       ccp <- getParam "d" --get data
-      scRef <- gets _content --stored content reference 
+      scRef <- gets _cntnt --stored content reference 
       case ccp of
         Nothing -> updateClient scRef
         Just c  | (not.B.null) c -> storeContent scRef c
@@ -107,9 +124,54 @@ handleContentUpdate = method GET getter
       writeBS sc
                  
     storeContent scRef c = do
-      liftIO $ writeIORef scRef c
-      liftIO $ B.putStrLn c
+      liftIO $ putStr $ show so
+      liftIO $ modifyIORef' scRef (applyInserts (inserts so) )  --atomicModifyIORef kell
+      sc <- liftIO $ readIORef scRef
+      liftIO $ putStr "new value: "
+      liftIO $ B.putStrLn sc
       updateClient scRef --itt ujra kiolvassuk, hatha szukseg van ra
+        where so = fromJust $ syncObject c
+
+modifyIORef' :: IORef a -> (a -> a) -> IO ()
+modifyIORef' ref f = do
+    x <- readIORef ref
+    let x' = f x
+    x' `seq` writeIORef ref x'
+
+
+applyInserts :: [Insert] -> ByteString -> ByteString
+applyInserts is bs = foldl (\b i -> apply i b) bs is
+  where apply (ins) b = B.concat [B.take idx b, strToBs cnt, B.drop idx b]
+          where idx = index ins
+                cnt = (content :: Insert -> String) ins
+
+lbsToBs :: BL.ByteString -> B.ByteString
+lbsToBs = B.pack . BL.unpack
+
+bsToLbs :: B.ByteString -> BL.ByteString
+bsToLbs = BL.pack . B.unpack
+
+syncObject :: ByteString -> Maybe SyncObject
+syncObject = A.decode . BL.pack . B.unpack     
+--extractInserts :: ByteString -> Either String [String]
+--extractInserts bs = (JS.runGetJSON JS.readJSObject str) 
+--  where str = T.unpack . E.decodeASCII $ bs
+--        eObj = JS.runGetJSON JS.readJSObject str
+--        maybeInserts = case eObj of
+--          Left  msg -> error msg
+--          Right obj -> J.get_field obj 
+--        insertArray = case maybeInserts of
+--          Nothing -> []
+--          Just is -> is
+
+bsToStr :: ByteString -> String
+bsToStr =  T.unpack . E.decodeUtf8      
+          
+strToBs :: String -> ByteString
+strToBs =  E.encodeUtf8 . T.pack      
+
+--        res = J.decode . T.unpack . E.decodeASCII $ bs
+
               
       --writeBS $ (E.encodeUtf8 . T.toLower . E.decodeUtf8) s
 
@@ -137,7 +199,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     --d <- nestSnaplet "dss" dss $ dssInit
     addRoutes routes
     addAuthSplices auth
-    cref <- liftIO $ newIORef "<ures>" 
+    cref <- liftIO $ newIORef "" --kezdetben ures 
     --addSplices $ map (second liftHeist) [("fact",factSplice)]
     return $ App h s a cref
 

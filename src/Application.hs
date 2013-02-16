@@ -22,7 +22,7 @@ data App = App
     , _sess :: Snaplet SessionManager
     , _auth :: Snaplet (AuthManager App)
 --    , _dss  :: Snaplet DocSnapServer
-    , _content :: IORef B.ByteString
+    , _cntnt :: IORef B.ByteString
     }
 
 makeLenses ''App
