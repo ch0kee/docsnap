@@ -1,19 +1,18 @@
-<apply template="base">
+<html>
+  <head>
+    <title>DocSnap Multi-User Document Editor</title>
+    <link rel="stylesheet" type="text/css" href="/screen.css"/>
+    <link rel="stylesheet" type="text/css" href="/styles.css"/>
+    <script src="/docsnap.js"> </script>
+    <script type="text/javascript" src="/jquery-1.9.1.js"></script>
+    <apply template="_jquery" />
 
-  <ifLoggedIn>
-    <p>
-      This is a simple demo page served using
-      <a href="http://snapframework.com/docs/tutorials/heist">Heist</a>
-      and the <a href="http://snapframework.com/">Snap</a> web framework.
-    </p>
+  </head>
+  <body>
+    <div id="content">
 
-    <p>Congrats!  You're logged in as '<loggedInUser/>'</p>
+      <apply template="_mainframe"/>
 
-    <p><a href="/logout">Logout</a></p>
-  </ifLoggedIn>
-
-  <ifLoggedOut>
-    <apply template="_mainframe"/>
-  </ifLoggedOut>
-
-</apply>
+    </div>
+  </body>
+</html>

@@ -33,7 +33,7 @@ import           Heist
 import qualified Heist.Interpreted as I
 import           Data.Lens.Lazy
 import Control.Comonad.Trans.Store
-import Control.Lens
+import Control.Lens hiding (index)
 import          Control.Monad.State
 ------------------------------------------------------------------------------
 import           Application
@@ -46,66 +46,21 @@ import Control.Arrow hiding (app)
 
 import Data.Aeson.TH
 import qualified Data.Aeson as A
---import Text.JSON
---import Text.JSON.String
 
--- elso spliceom, kimasoltam
-{-|
-factSplice :: I.Splice Snap
-factSplice = do
-  input <- getParamNode
-  let text = T.unpack $ X.nodeText input
-      n = read text :: Int
-  return [X.TextNode $ T.pack $ show $ product [1..n]]
-  
-
-
-------------------------------------------------------------------------------
--- | Render login form
-handleLogin :: Maybe T.Text -> Handler App (AuthManager App) ()
-handleLogin authError = heistLocal (I.bindSplices errs) $ render "login"
-  where
-    errs = [("loginError", I.textSplice c) | c <- maybeToList authError]
-
-
-------------------------------------------------------------------------------
--- | Handle login submit
-handleLoginSubmit :: Handler App (AuthManager App) ()
-handleLoginSubmit =
-    loginUser "login" "password" Nothing
-              (\_ -> handleLogin err) (redirect "/")
-  where
-    err = Just "Unknown user or password"
-
-
-------------------------------------------------------------------------------
--- | Logs out and redirects the user to the site index.
-handleLogout :: Handler App (AuthManager App) ()
-handleLogout = logout >> redirect "/"
-
-
-------------------------------------------------------------------------------
--- | Handle new user form submit
-handleNewUser :: Handler App (AuthManager App) ()
-handleNewUser = method GET handleForm <|> method POST handleFormSubmit
-  where
-    handleForm = render "new_user"
-    handleFormSubmit = registerUser "login" "password" >> redirect "/"
--}
 
 -- tartalom kibontasa
 fromMaybeContent :: Maybe ByteString -> ByteString
 fromMaybeContent (Just bs) = bs
 fromMaybeContent Nothing = B.empty
 
-data Insert = Insert { index :: Int, content :: String }
-  deriving (Show)
+--data Insert = Insert { index :: Int, content :: String }
+--  deriving (Show)
 
-data SyncObject = SyncObject { inserts :: [Insert]  }
+data SyncObject = SyncObject { content :: String  }
   deriving (Show)
-$(deriveJSON id ''Insert)
--- $(deriveJSON id ''Remove)
 $(deriveJSON id ''SyncObject)
+-- $(deriveJSON id ''Insert)
+-- $(deriveJSON id ''Remove)
 
 -- Lekezeljuk az uj adatot
 handleContentUpdate :: Handler App App ()
@@ -113,37 +68,39 @@ handleContentUpdate = method POST getter
   where
     getter = do
       ccp <- getParam "d" --get data
-      scRef <- gets _cntnt --stored content reference 
+      scRef <- gets _cntnt --stored content reference
       case ccp of
         Nothing -> updateClient scRef
         Just c  | (not.B.null) c -> storeContent scRef c
                 | otherwise -> storeContent scRef ""
-        
+
     updateClient scRef = do
+      liftIO $ putStrLn "updateClient"
       sc <- liftIO $ readIORef scRef --stored content
       writeBS sc
-                 
-    storeContent scRef c = do
-      liftIO $ putStr $ show so
-      liftIO $ modifyIORef' scRef (applyInserts (inserts so) )  --atomicModifyIORef kell
-      sc <- liftIO $ readIORef scRef
-      liftIO $ putStr "new value: "
-      liftIO $ B.putStrLn sc
-      updateClient scRef --itt ujra kiolvassuk, hatha szukseg van ra
-        where so = fromJust $ syncObject c
 
+    storeContent scRef c = do
+--      liftIO $ putStrLn (bsToStr c)--"storeContent"
+      liftIO $ putStrLn $ show so
+      --liftIO $ modifyIORef' scRef (applyInserts (inserts so) )  --atomicModifyIORef kell
+      --sc <- liftIO $ readIORef scRef
+      --liftIO $ putStr "new value: "
+      --liftIO $ B.putStrLn sc
+      --updateClient scRef --itt ujra kiolvassuk, hatha szukseg van ra
+        where so = fromJust $ syncObject c
 modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = do
-    x <- readIORef ref
-    let x' = f x
-    x' `seq` writeIORef ref x'
+  x <- readIORef ref
+  let x' = f x
+  x' `seq` writeIORef ref x'
 
-
+{-
 applyInserts :: [Insert] -> ByteString -> ByteString
 applyInserts is bs = foldl (\b i -> apply i b) bs is
   where apply (ins) b = B.concat [B.take idx b, strToBs cnt, B.drop idx b]
-          where idx = index ins
+          where idx = (index :: Insert -> Int) ins
                 cnt = (content :: Insert -> String) ins
+-}
 
 lbsToBs :: BL.ByteString -> B.ByteString
 lbsToBs = B.pack . BL.unpack
@@ -152,27 +109,27 @@ bsToLbs :: B.ByteString -> BL.ByteString
 bsToLbs = BL.pack . B.unpack
 
 syncObject :: ByteString -> Maybe SyncObject
-syncObject = A.decode . BL.pack . B.unpack     
+syncObject = A.decode . BL.pack . B.unpack
 --extractInserts :: ByteString -> Either String [String]
---extractInserts bs = (JS.runGetJSON JS.readJSObject str) 
+--extractInserts bs = (JS.runGetJSON JS.readJSObject str)
 --  where str = T.unpack . E.decodeASCII $ bs
 --        eObj = JS.runGetJSON JS.readJSObject str
 --        maybeInserts = case eObj of
 --          Left  msg -> error msg
---          Right obj -> J.get_field obj 
+--          Right obj -> J.get_field obj
 --        insertArray = case maybeInserts of
 --          Nothing -> []
 --          Just is -> is
 
 bsToStr :: ByteString -> String
-bsToStr =  T.unpack . E.decodeUtf8      
-          
+bsToStr =  T.unpack . E.decodeUtf8
+
 strToBs :: String -> ByteString
-strToBs =  E.encodeUtf8 . T.pack      
+strToBs =  E.encodeUtf8 . T.pack
 
 --        res = J.decode . T.unpack . E.decodeASCII $ bs
 
-              
+
       --writeBS $ (E.encodeUtf8 . T.toLower . E.decodeUtf8) s
 
 ------------------------------------------------------------------------------
@@ -199,7 +156,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     --d <- nestSnaplet "dss" dss $ dssInit
     addRoutes routes
     addAuthSplices auth
-    cref <- liftIO $ newIORef "" --kezdetben ures 
+    cref <- liftIO $ newIORef "" --kezdetben ures
     --addSplices $ map (second liftHeist) [("fact",factSplice)]
     return $ App h s a cref
 

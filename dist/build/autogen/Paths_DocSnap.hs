@@ -12,12 +12,12 @@ catchIO = Exception.catch
 
 
 version :: Version
-version = Version {versionBranch = [0,1,2], versionTags = []}
+version = Version {versionBranch = [0,1,3], versionTags = []}
 bindir, libdir, datadir, libexecdir :: FilePath
 
 bindir     = "/home/ch0kee/.cabal/bin"
-libdir     = "/home/ch0kee/.cabal/lib/DocSnap-0.1.2/ghc-7.4.2"
-datadir    = "/home/ch0kee/.cabal/share/DocSnap-0.1.2"
+libdir     = "/home/ch0kee/.cabal/lib/DocSnap-0.1.3/ghc-7.4.2"
+datadir    = "/home/ch0kee/.cabal/share/DocSnap-0.1.3"
 libexecdir = "/home/ch0kee/.cabal/libexec"
 
 getBinDir, getLibDir, getDataDir, getLibexecDir :: IO FilePath

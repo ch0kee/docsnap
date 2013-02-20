@@ -7,6 +7,13 @@
   (major1) == 0 && (major2) <  3 || \
   (major1) == 0 && (major2) == 3 && (minor) <= 0)
 
+/* package aeson-0.6.1.0 */
+#define VERSION_aeson "0.6.1.0"
+#define MIN_VERSION_aeson(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  6 || \
+  (major1) == 0 && (major2) == 6 && (minor) <= 1)
+
 /* package base-4.5.1.0 */
 #define VERSION_base "4.5.1.0"
 #define MIN_VERSION_base(major1,major2,minor) (\
@@ -35,19 +42,19 @@
   (major1) == 2 && (major2) <  10 || \
   (major1) == 2 && (major2) == 10 && (minor) <= 2)
 
-/* package heist-0.10.2.1 */
-#define VERSION_heist "0.10.2.1"
+/* package heist-0.11.0 */
+#define VERSION_heist "0.11.0"
 #define MIN_VERSION_heist(major1,major2,minor) (\
   (major1) <  0 || \
-  (major1) == 0 && (major2) <  10 || \
-  (major1) == 0 && (major2) == 10 && (minor) <= 2)
+  (major1) == 0 && (major2) <  11 || \
+  (major1) == 0 && (major2) == 11 && (minor) <= 0)
 
-/* package lens-3.7.3 */
-#define VERSION_lens "3.7.3"
+/* package lens-3.8.5 */
+#define VERSION_lens "3.8.5"
 #define MIN_VERSION_lens(major1,major2,minor) (\
   (major1) <  3 || \
-  (major1) == 3 && (major2) <  7 || \
-  (major1) == 3 && (major2) == 7 && (minor) <= 3)
+  (major1) == 3 && (major2) <  8 || \
+  (major1) == 3 && (major2) == 8 && (minor) <= 5)
 
 /* package mtl-2.1.1 */
 #define VERSION_mtl "2.1.1"
@@ -56,19 +63,26 @@
   (major1) == 2 && (major2) <  1 || \
   (major1) == 2 && (major2) == 1 && (minor) <= 1)
 
-/* package snap-0.10.0.1 */
-#define VERSION_snap "0.10.0.1"
+/* package snap-0.11.0 */
+#define VERSION_snap "0.11.0"
 #define MIN_VERSION_snap(major1,major2,minor) (\
   (major1) <  0 || \
-  (major1) == 0 && (major2) <  10 || \
-  (major1) == 0 && (major2) == 10 && (minor) <= 0)
+  (major1) == 0 && (major2) <  11 || \
+  (major1) == 0 && (major2) == 11 && (minor) <= 0)
 
-/* package snap-core-0.9.2.2 */
-#define VERSION_snap_core "0.9.2.2"
+/* package snap-core-0.9.3.1 */
+#define VERSION_snap_core "0.9.3.1"
 #define MIN_VERSION_snap_core(major1,major2,minor) (\
   (major1) <  0 || \
   (major1) == 0 && (major2) <  9 || \
-  (major1) == 0 && (major2) == 9 && (minor) <= 2)
+  (major1) == 0 && (major2) == 9 && (minor) <= 3)
+
+/* package snap-loader-dynamic-0.10 */
+#define VERSION_snap_loader_dynamic "0.10"
+#define MIN_VERSION_snap_loader_dynamic(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  10 || \
+  (major1) == 0 && (major2) == 10 && (minor) <= 0)
 
 /* package snap-loader-static-0.9.0.1 */
 #define VERSION_snap_loader_static "0.9.0.1"
@@ -77,12 +91,12 @@
   (major1) == 0 && (major2) <  9 || \
   (major1) == 0 && (major2) == 9 && (minor) <= 0)
 
-/* package snap-server-0.9.2.4 */
-#define VERSION_snap_server "0.9.2.4"
+/* package snap-server-0.9.3.1 */
+#define VERSION_snap_server "0.9.3.1"
 #define MIN_VERSION_snap_server(major1,major2,minor) (\
   (major1) <  0 || \
   (major1) == 0 && (major2) <  9 || \
-  (major1) == 0 && (major2) == 9 && (minor) <= 2)
+  (major1) == 0 && (major2) == 9 && (minor) <= 3)
 
 /* package text-0.11.2.3 */
 #define VERSION_text "0.11.2.3"
