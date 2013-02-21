@@ -5,6 +5,7 @@
     <link rel="stylesheet" type="text/css" href="/styles.css"/>
     <script src="/docsnap.js"> </script>
     <script type="text/javascript" src="/jquery-1.9.1.js"></script>
+    <script type="text/javascript" src="/jquery.caret.1.02.min.js"></script>
     <apply template="_jquery" />
 
   </head>
