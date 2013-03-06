@@ -4,17 +4,199 @@
     <link rel="stylesheet" type="text/css" href="screen.css"/>
     <link rel="stylesheet" type="text/css" href="styles.css"/>
     <script src="/docsnap.js"> </script>
-    <script type="text/javascript" src="jquery-1.9.1.js"></script>
+    <script src="diff.js"> </script>
+    <script src="jquery-1.9.1.js"></script>
+    <script src="jquerypp/jquerypp.js"> </script>
 
-<script type="text/javascript">
+    <script type="text/javascript">
+
+function pasteHtmlAtCaret(html) {
+    var sel, range;
+    if (window.getSelection) {
+        // IE9 and non-IE
+        sel = window.getSelection();
+        if (sel.getRangeAt && sel.rangeCount) {
+            range = sel.getRangeAt(0);
+            range.deleteContents();
+
+            // Range.createContextualFragment() would be useful here but is
+            // non-standard and not supported in all browsers (IE9, for one)
+            var el = document.createElement("div");
+            el.innerHTML = html;
+            var frag = document.createDocumentFragment(), node, lastNode;
+            while ( (node = el.firstChild) ) {
+                lastNode = frag.appendChild(node);
+            }
+            range.insertNode(frag);
+
+            // Preserve the selection
+            if (lastNode) {
+                range = range.cloneRange();
+                range.setStartAfter(lastNode);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }
+    } else if (document.selection && document.selection.type != "Control") {
+        // IE < 9
+        document.selection.createRange().pasteHTML(html);
+    }
+}
+
 $(document).ready(function() {
+    setInterval(function() {
+        $('#preview').text( $('#editor').html());
+        }, 2000);
 
-node = document.getElementById('caretspan2');
-range = document.createRange();
-range.selectNodeContents(node);
-window.getSelection().addRange(range);
+    var sel = new Object();
+
+
+
+    function wrapCaretWithSpan() {
+        var sel = window.getSelection();
+        if (sel.rangeCount <= 0)
+            return;
+        removeCaretSpan();
+        var range = sel.getRangeAt(0);
+        var span = document.createElement("span");
+        span.setAttribute("id", "caretspan");
+        range.surroundContents(span);
+        sel.selectAllChildren(span);
+        //sel.removeAllRanges();
+        //sel.addRange(range);
+    }
+
+    function jumpToCaretSpan() {
+        $('#editor').focus();
+        var sel = window.getSelection();
+        var span = document.getElementById("caretspan");
+        if (span) {
+            sel.selectAllChildren(span);
+        }
+    }
+
+    function    removeCaretSpan() {
+        if ($('#caretspan').length > 0) {
+            if ($('#caretspan').contents().length > 0) {
+                $('#caretspan').contents().unwrap();
+            } else {
+                $('#caretspan').remove();
+            }
+        }
+    }
+
+    //változtatások alkalmazása
+    function getWithChangesApplied(str, changes) {
+        var strArray = new Array();
+        //index szerint rendezve
+        changes.sort( function(c1, c2) {
+            return c1.idx-c2.idx
+        });
+
+        var newStr = str.slice(0);
+        var strIndex = 0;
+        var oldIndex = 0;
+        for(var i = 0; i < changes.length; ++i) {
+            if (changes.typ == "+") {
+            //insert
+                changes.idx
+            } else if (changes.typ == "-") {
+            //remove
+                //
+            }
+        }
+
+        return str;
+    }
+
+    var savedContent = "";
+    $("#test1btn").text('save content');
+    $("#test1btn").mousedown(function(e) {
+        e.preventDefault();
+        savedContent = $('#editor').html();
+
+    });
+
+    var syncobjdiff = null;
+    $("#test2btn").text('diff');
+    $("#test2btn").mousedown(function(e) {
+        e.preventDefault();
+        var newContent  = $('#editor').html();
+        syncobjdiff = JsDiff.diffCharChanges(savedContent, newContent);
+        //console.log(JSON.stringify(syncobj));
+        $('#diffview').text(JSON.stringify(syncobjdiff));
+    });
+
+    var diffViewContent = "";
+    var newContent = "";
+    $("#test3btn").text('merge to diffview');
+    $("#test3btn").mousedown(function(e) {
+        e.preventDefault();
+        var oldContent = $('#diffview').html();
+        newContent  = $('#editor').html();
+
+        var changes = JsDiff.diffCharChanges(oldContent, newContent);
+        var applied = JsDiff.applyCharChanges1(oldContent, changes);
+        $('#diffview').html(applied);
+    });
+    $("#saveselectionbtn").mousedown(function(e) {
+        e.preventDefault();
+        //sel = $('#editor').selection();
+
+        wrapCaretWithSpan();
+        //$('#editor').focus();
+    });
+
+    $("#restoreselectionbtn").mousedown(function(e) {
+        e.preventDefault();
+        //$('#editor').selection(sel.start, sel.end);
+        //$('#editor').focus();
+        jumpToCaretSpan();
+    });
+
+    $("#editor").on({
+        keypress: function(ev){
+
+            var code = ev.keyCode || ev.which;
+            /*
+            console.log(ev.keyName());
+            if(ev.keyName() == '\b') {
+                ev.preventDefault();
+            } else if (ev.keyName() == 'delete') {
+                ev.preventDefault();
+            } else
+            */
+            if (code == 13) {
+                //console.log('enter pressed');
+                pasteHtmlAtCaret('<br>');
+                ev.preventDefault();
+            }
+            //console.log('keypress');
+        },
+/*
+        input: function() {
+            console.log('input');
+            var sel = $('#editor').selection();
+            $('#start').text(sel.start);
+            $('#end').text(sel.end);
+            $('#width').text(sel.width);
+        }
+*/
+        input: function() {
+            //console.log('input');
+            var newContent = $("#editor").html();
+            var syncobj = JsDiff.diffCharChanges(oldContent, newContent);
+            //console.log(JSON.stringify(syncobj));
+            oldContent = newContent;
+        }
+    });
+
+    var oldContent = "";
 
   var enableAJAXheartbeat = false;
+
+
 
   function caretPosition(pos) {
     var editor = document.getElementById("editor");
@@ -58,18 +240,13 @@ window.getSelection().addRange(range);
     $("#editor").text( vn );
     return vn;*/
   }
-  //on changed
-  var suppressInput = false;
-  $("#editor").on('input', function() {
-    if (suppressInput)
-      return;
-    suppressInput = true;
-    //embedIntoSpan();
-//    filterEditorText();
-    //caretPosition(0);
+  /*
+    $('#editor').bind('paste', function () {
+       // clipData
+    });*/
 
-    suppressInput = false;
-  });
+  //on changed
+
   /*
   $("#editor").keypress(function(event) {
     if ( event.which == 13 ) {
@@ -96,12 +273,33 @@ window.getSelection().addRange(range);
   - ondrag (remove)
   - onselect kellhet
   */
+    function    insertText() {
+        editor = document.getElementById('editor');
+        var rangeObj = document.createRange ();
+        rangeObj.setStart (editor, 0);
+        rangeObj.setEnd (editor, 0);
+        var textNode = document.createTextNode ("alma");
+        rangeObj.insertNode(textNode);
+    }
 /*
-  setInterval(function() {
-      var cp = caretPosition();
-    $("#caretchildindex").text( cp.index );
-    $("#caretoffset").text( cp.offset );
-  }, 1000);
+    $("#editor").bind('paste', function (event) {
+
+
+        var range2 = document.getSelection().getRangeAt(0);
+        var spanNode = document.createElement("p");
+        range2.surroundContents(spanNode);
+        insertText();
+    });
+
+
+    setInterval(function() {
+
+        var cp = caretPosition();
+        //$('#editor').text('\ud83d\udd13');
+        $("#caretchildindex").text( cp.index );
+        $("#caretoffset").text( cp.offset );
+        $("#editor2").text( $("#editor").html() );
+    }, 3000);
 */
   //ajax heartbeat
   if (enableAJAXheartbeat)
@@ -136,19 +334,25 @@ window.getSelection().addRange(range);
     <div id="content">
 <h1>[DocSnap Fejléc]</h1>
 <h1>DocSnap Eszköztár</h1>
-<p>childIndex </p><div id="caretchildindex">X</div>
-<p>childOffset </p><div id="caretoffset">X</div> <br/>
+<button id="test1btn" type="button">Test1</button>
+<button id="test2btn" type="button">Test2</button>
+<button id="test3btn" type="button">Test3</button>
+<button id="saveselectionbtn" type="button">Save Selection</button>
+<button id="restoreselectionbtn" type="button">Restore Selection</button>
+<table>
+    <tr>
+        <td>
 <div id="editor" class="editorinput" contenteditable="true"> </div>
-<div id="editor2" class="editorinput" contenteditable="true" >
-<span id="caretspan2" style="background-color: #ffaacc" data-version="1"></span>
-</div>
-<div id="editor3" class="editorinput" contenteditable="true" >
-<span style="background-color: #ffaacc" data-version="1">xxx</span><span  style="background-color: #aaffcc" data-version="1">yyy</span>
-
-</div>
-
-
     </div>
+        </td>
+        <td>
+    <div id="preview" class="editorinput"> </div>
+        </td>
+                <td>
+    <div id="diffview" class="editorinput"> </div>
+        </td>
+    </tr>
+</table>
   </body>
 </html>
 

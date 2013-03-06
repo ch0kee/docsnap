@@ -49,12 +49,12 @@
   (major1) == 0 && (major2) <  11 || \
   (major1) == 0 && (major2) == 11 && (minor) <= 0)
 
-/* package lens-3.8.5 */
-#define VERSION_lens "3.8.5"
+/* package lens-3.8.7.3 */
+#define VERSION_lens "3.8.7.3"
 #define MIN_VERSION_lens(major1,major2,minor) (\
   (major1) <  3 || \
   (major1) == 3 && (major2) <  8 || \
-  (major1) == 3 && (major2) == 8 && (minor) <= 5)
+  (major1) == 3 && (major2) == 8 && (minor) <= 7)
 
 /* package mtl-2.1.1 */
 #define VERSION_mtl "2.1.1"
@@ -112,8 +112,8 @@
   (major1) == 1 && (major2) <  4 || \
   (major1) == 1 && (major2) == 4 && (minor) <= 0)
 
-/* package xmlhtml-0.2.0.3 */
-#define VERSION_xmlhtml "0.2.0.3"
+/* package xmlhtml-0.2.0.4 */
+#define VERSION_xmlhtml "0.2.0.4"
 #define MIN_VERSION_xmlhtml(major1,major2,minor) (\
   (major1) <  0 || \
   (major1) == 0 && (major2) <  2 || \
