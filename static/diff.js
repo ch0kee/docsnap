@@ -7,186 +7,223 @@
  */
 
 
-function ChangeIterator (changes) {
-    this.currentChangeIndex = 0;
-    this.currentCharacterIndex = 0;
-    this.changesArray = changes;
+//shortest edit script iterator
+function SESIterator (ses) {
+    this._index = 0;
+    this._characterIndex = 0;
+    this._ses = ses;
 }
 
-ChangeIterator.prototype.currentChange = function() {
-    return this.changesArray[ this.currentChangeIndex ];
+SESIterator.prototype.current = function () {
+    return this._ses[ this._index ];
 }
 
-ChangeIterator.prototype.stepCharacter =  function () {
-    if (!this.currentChangeIs('+') && this.currentCharacterIndex < this.currentChange().len-1) {
-        ++this.currentCharacterIndex;
+SESIterator.prototype.stepCharacter =  function () {
+    var c = this.current();
+    if (c.type != '+' && this._characterIndex < c.value.length-1) {
+        ++this._characterIndex;
     } else {
-        ++this.currentChangeIndex;
-        this.currentCharacterIndex = 0;
+        ++this._index;
+        this._characterIndex = 0;
     }
 }
 /*
-ChangeIterator.prototype.currentCharacter = function () {
+SESIterator.prototype.currentCharacter = function () {
     if (!this.current
 }*/
 
-ChangeIterator.prototype.doesntChange = function() {
+SESIterator.prototype.doesntChange = function() {
     return this.currentChangeIs('=');
 }
 
-ChangeIterator.prototype.currentChangeIs = function(t) {
-    return this.currentChange().typ == t;
+SESIterator.prototype.currentChangeIs = function(t) {
+    return this.currentChange().type == t;
 }
 
-ChangeIterator.prototype.valid = function() {
-    return this.currentChangeIndex < this.changesArray.length;
+SESIterator.prototype.valid = function() {
+    return this._index < this._ses.length;
 }
 
-ChangeIterator.prototype.insertedText = function() {
+SESIterator.prototype.insertion = function() {
     if (this.valid() && this.currentChangeIs('+')) {
-        return this.currentChange().val;
+        return this.currentChange().value;
     } else
         return null;
 }
 
+function SESPairIterator(s1, s2) {
+    this._s1 = s1;
+    this._s2 = s2;
+}
 
-var JsDiff = (function() {
-  /*jshint maxparams: 5*/
-  function clonePath(path) {
-    return { newPos: path.newPos, components: path.components.slice(0) };
-  }
+SESPairIterator.prototype.insertion() {
+    var ins1 = _s1.insertion();
+    var ins2 = _s2.insertion();
+    return ins1 + ins2;
+}
+
+SESPairIterator.prototype.insertion() {
+    var ins1 = _s1.insertion();
+    var ins2 = _s2.insertion();
+    return ins1 + ins2;
+}
 
 
-  var Diff = function() {
-  };
-  Diff.prototype = {
-      diff: function(oldString, newString) {
-        // Handle the identity case (this is due to unrolling editLength == 0
-        if (newString === oldString) {
-          return [{ value: newString }];
-        }
-        if (!newString) {
-          return [{ value: oldString, removed: true }];
-        }
-        if (!oldString) {
-          return [{ value: newString, added: true }];
-        }
 
-        var newLen = newString.length, oldLen = oldString.length;
-        var maxEditLength = newLen + oldLen;
-        var bestPath = [{ newPos: -1, components: [] }];
+function DiffEngine() {
+    //koordinatak a racson
+    //x : elso-beli (remove)
+    //y : masodik-beli (insert)
+}
 
-        // Seed editLength = 0
-        var oldPos = this.extractCommon(bestPath[0], newString, oldString, 0);
-        if (bestPath[0].newPos+1 >= newLen && oldPos+1 >= oldLen) {
-          return bestPath[0].components;
-        }
+DiffEngine.prototype._equals = function(left, right) {
+    return left === right;
+}
 
-        for (var editLength = 1; editLength <= maxEditLength; editLength++) {
-          for (var diagonalPath = -1*editLength; diagonalPath <= editLength; diagonalPath+=2) {
+DiffEngine.prototype._clonePath = function(path) {
+    return { x: path.x, components: path.components.slice(0) };
+}
+
+DiffEngine.prototype._createComponent= function(value, type) {
+    return { value: value, type: type };
+}
+
+DiffEngine.prototype._pushComponent = function(components, value, type) {
+    var last = components[components.length-1];
+    if (last && last.type === type) {
+        components[components.length-1] = this._createComponent(last.value + value, type);
+    } else {
+        components.push(this._createComponent(value, type));
+    }
+}
+
+DiffEngine.prototype._extractCommon = function(basePath, newString, oldString, diagonalPath) {
+    var newLen = newString.length,
+        oldLen = oldString.length,
+        basePath_y = basePath.x - diagonalPath;
+    var plus = 0;
+    for(;basePath.x+plus+1 < newMaxIndex && basePath_y+plus+1 < oldLen
+        && equals(newString[basePath.x+plus+1],oldString[basePath_y+plus+1])
+        ;++plus);
+    this._pushComponent(basePath.components, newString.slice(basePath.x, basePath.x+plus), '=');
+    basePath.x += plus;
+    return basePath_y + plus;
+}
+
+
+//get Shortest Edit Script
+DiffEngine.prototype.getSES = function(oldString, newString) {
+    if (newString === oldString) {
+        return this._createComponent(newString,'=');
+    }
+    if (!newString) {
+        return this._createComponent(oldString,'-');
+    }
+    if (!oldString) {
+        return this._createComponent(newString,'+');
+    }
+    var bestPath = [{ x: -1, components: [] }];
+    var bestPath_y = this._extractCommon(bestPath[0], newString, oldString, 0);
+
+    var newLen = newString.length,
+        oldLen = oldString.length,
+    if (bestPath[0].x+1 >= newLen && bestPath_y+1 >= oldLen) {
+        return bestPath[0].components;
+    }
+
+    //
+    var maxEditLength = newLen + oldLen,
+    for (var editLength = 1; editLength <= maxEditLength; ++editLength) {
+        for (var diagonalPath = -1*editLength; diagonalPath <= editLength; diagonalPath+=2) {
             var basePath;
             var addPath = bestPath[diagonalPath-1],
                 removePath = bestPath[diagonalPath+1];
-            oldPos = (removePath ? removePath.newPos : 0) - diagonalPath;
+            removePath_y = (removePath ? removePath.x : 0) - diagonalPath;
+
             if (addPath) {
-              // No one else is going to attempt to use this value, clear it
-              bestPath[diagonalPath-1] = undefined;
+                // No one else is going to attempt to use this value, clear it
+                bestPath[diagonalPath-1] = undefined;
             }
 
-            var canAdd = addPath && addPath.newPos+1 < newLen;
-            var canRemove = removePath && 0 <= oldPos && oldPos < oldLen;
+            var canAdd = addPath && addPath.x+1 < newLen;
+            var canRemove = removePath && 0 <= removePath_y && removePath_y < oldLen;
             if (!canAdd && !canRemove) {
-              bestPath[diagonalPath] = undefined;
-              continue;
+                bestPath[diagonalPath] = undefined;
+                continue;
             }
 
             // Select the diagonal that we want to branch from. We select the prior
             // path whose position in the new string is the farthest from the origin
             // and does not pass the bounds of the diff graph
-            if (!canAdd || (canRemove && addPath.newPos < removePath.newPos)) {
-              basePath = clonePath(removePath);
-              this.pushComponent(basePath.components, oldString[oldPos], undefined, true);
+            if (!canAdd || (canRemove && addPath.x < removePath.x)) {
+                basePath = _clonePath(removePath);
+                this._pushComponent(basePath.components, oldString[removePath_y], '-');
             } else {
-              basePath = clonePath(addPath);
-              basePath.newPos++;
-              this.pushComponent(basePath.components, newString[basePath.newPos], true, undefined);
+                basePath = _clonePath(addPath);
+                this._pushComponent(basePath.components, newString[++basePath.x], '+');
             }
 
-            var oldPos = this.extractCommon(basePath, newString, oldString, diagonalPath);
-
-            if (basePath.newPos+1 >= newLen && oldPos+1 >= oldLen) {
-              return basePath.components;
+            var basePath_y = this._extractCommon(basePath, newString, oldString, diagonalPath);
+            if (basePath.x+1 >= newLen && basePath_y+1 >= oldLen) {
+                return basePath.components;
             } else {
-              bestPath[diagonalPath] = basePath;
+                bestPath[diagonalPath] = basePath;
             }
-          }
         }
-      },
+    }
+}
 
-      //vagy az utolsóhoz fűzzük, ha lehet, egyébként új komponens
-      pushComponent: function(components, value, added, removed) {
-        var last = components[components.length-1];
-        if (last && last.added === added && last.removed === removed) {
-          // We need to clone here as the component clone operation is just
-          // as shallow array clone
-          components[components.length-1] =
-            {value: this.join(last.value, value), added: added, removed: removed };
-        } else {
-          components.push({value: value, added: added, removed: removed });
+DiffEngine.prototype.convertJsonToSes = function(json) {
+    return json.data;
+}
+
+DiffEngine.prototype.execute2 = function(ses1, ses2, oldString) {
+    var s1 = new SESIterator(ses1);
+    var s2 = new SESIterator(ses2);
+
+    var result = "";
+    for(var i = 0; i < oldString.length; ++i) {
+        if (s1.isInserting()) {
+            result = result + s1.current().value;
+            s1.advance();
         }
-      },
-      extractCommon: function(basePath, newString, oldString, diagonalPath) {
-        var newLen = newString.length,
-            oldLen = oldString.length,
-            newPos = basePath.newPos,
-            oldPos = newPos - diagonalPath;
-
-        //consume snake
-        while (newPos+1 < newLen && oldPos+1 < oldLen && this.equals(newString[newPos+1], oldString[oldPos+1])) {
-          newPos++;
-          oldPos++;
-
-          this.pushComponent(basePath.components, newString[newPos], undefined, undefined);
+        if (s2.isInserting()) {
+            result = result + s2.current().value;
+            s1.advance();
         }
-        basePath.newPos = newPos;
-        return oldPos;
-      },
 
-      equals: function(left, right) {
-        return left === right;
-      },
-      join: function(left, right) {
-        return left + right;
-      }
-  };
+        //process insertions
+        if (s1[j].type == '+') {
+            result = result + s1[j].value;
+            ++j;
+        }
+        if (s2[k].type == '+') {
+            result = result + s2[k].value;
+            ++k;
+        }
 
-  var CharDiff = new Diff();
+        //from here we deal only with '-' and '='
+        //longest common
+        var commonLen = 0;
+        var type = '';
+        while(s1[j].type === s2[k].type) {
+            type = s1[j].type;
+            if (type == '=') {
 
-  return {
-    Diff: Diff,
-
-    diffChars: function(oldStr, newStr) { return CharDiff.diff(oldStr, newStr); },
-    diffCharChanges: function(oldStr, newStr) {
-        cdiffs = CharDiff.diff(oldStr, newStr);
-        changes = new Array();
-        for(var i = 0; i < cdiffs.length; ++i) {
-            var change = null;
-
-            change = new Object();
-            if (cdiffs[i].added) {
-                change.typ = '+';
-                change.val = cdiffs[i].value;
-            } else if (cdiffs[i].removed) {
-                change.typ = '-';
-                change.len = cdiffs[i].value.length;
-            } else {
-                change.typ = '='; //skip
-                change.len = cdiffs[i].value.length;
+            } else if (type == '-'){
             }
-            changes.push(change);
+            ++commonLen;
+
+            if (s1[j].value
         }
-        return changes;
-    },
+        //next
+
+        var s1rem = s1.
+        while (s1[j] == s2[k]) {
+
+        }
+    }
+}
 
     //egyelőre gagyi, de műxik
     applyCharChanges1: function(oldText, ch) {
@@ -212,6 +249,45 @@ var JsDiff = (function() {
         return text;
     },
     applyCharChanges2: function(oldText, ch1, ch2) {
+        cit1 = new ChangeIterator(ch1);
+        cit2 = new ChangeIterator(ch2);
+        var text = "";
+        for(var i = 0; cit1.valid() || cit2.valid(); ++i) {
+            var ins1 = cit1.insertedText();
+            var ins2 = cit2.insertedText();
+            if (ins1 != null) {
+                text += ins1;
+            }
+            if (ins2 != null) {
+                text += ins2;
+            }
+
+            //itt mindkettőben a 0. karakteren vagyunk
+            if ((cit1.valid() && cit1.doesntChange()) || (cit2.valid() && cit2.doesntChange())) {
+                text += oldText[i];
+            }
+
+            if (cit1.valid()) {
+                cit1.stepCharacter();
+            }
+            if (cit2.valid()) {
+                cit2.stepCharacter();
+            }
+
+        }
+        return text;
+    },
+
+    function printBr(element, index, array) {
+    document.write("<br />[" + index + "] is " + element );
+    }
+
+
+    applyCharChangesN: function(oldText, changes) {
+    //returns changedTexts[changes.length] : Array
+        var cits = new Array();
+        for(var i = 0
+
         cit1 = new ChangeIterator(ch1);
         cit2 = new ChangeIterator(ch2);
         var text = "";
