@@ -33,7 +33,7 @@ import           Heist
 import qualified Heist.Interpreted as I
 import           Data.Lens.Lazy
 import Control.Comonad.Trans.Store
-import Control.Lens hiding (index)
+import Control.Lens
 import          Control.Monad.State
 ------------------------------------------------------------------------------
 import           Application
@@ -56,9 +56,7 @@ fromMaybeContent Nothing = B.empty
 --data Insert = Insert { index :: Int, content :: String }
 --  deriving (Show)
 
-data SyncObject = SyncObject { content :: String  }
-  deriving (Show)
-$(deriveJSON id ''SyncObject)
+
 -- $(deriveJSON id ''Insert)
 -- $(deriveJSON id ''Remove)
 
@@ -67,27 +65,29 @@ handleContentUpdate :: Handler App App ()
 handleContentUpdate = method POST getter
   where
     getter = do
-      ccp <- getParam "d" --get data
-      scRef <- gets _cntnt --stored content reference
+      ccp <- getParam "d"
+      dssRef <- gets _dss
       case ccp of
-        Nothing -> updateClient scRef
-        Just c  | (not.B.null) c -> storeContent scRef c
-                | otherwise -> storeContent scRef ""
+        Nothing -> return () --updateClient scRef
+        Just c  | (not . B.null) c -> storeContent dssRef (fromJust $ syncObject c)
+                | otherwise -> return () -- storeContent dssRef
 
-    updateClient scRef = do
+    updateClient dssRef = do
       liftIO $ putStrLn "updateClient"
-      sc <- liftIO $ readIORef scRef --stored content
-      writeBS sc
+      dss <- liftIO $ readIORef dssRef --stored content
+      liftIO $ putStrLn $ (bsToStr . lbsToBs . A.encode) (dss_syncObject dss)
+      writeBS $ (lbsToBs . A.encode) (dss_syncObject dss)
 
-    storeContent scRef c = do
---      liftIO $ putStrLn (bsToStr c)--"storeContent"
-      liftIO $ putStrLn $ show so
-      --liftIO $ modifyIORef' scRef (applyInserts (inserts so) )  --atomicModifyIORef kell
+    storeContent dssRef so = do
+      liftIO $ putStrLn $ show so--"storeContent"
+      --liftIO . putStrLn . bsToStr . lbsToBs . A.encode $ SyncObject { so_diff=[ (edit "abc" "+"), (edit "xxx" "-")] }
+      liftIO $ modifyIORef' dssRef (\dss -> dss { dss_syncObject=so }) --atomicModifyIORef kell
       --sc <- liftIO $ readIORef scRef
       --liftIO $ putStr "new value: "
       --liftIO $ B.putStrLn sc
-      --updateClient scRef --itt ujra kiolvassuk, hatha szukseg van ra
-        where so = fromJust $ syncObject c
+      updateClient dssRef --itt ujra kiolvassuk, hatha szukseg van ra
+
+
 modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = do
   x <- readIORef ref
@@ -110,16 +110,6 @@ bsToLbs = BL.pack . B.unpack
 
 syncObject :: ByteString -> Maybe SyncObject
 syncObject = A.decode . BL.pack . B.unpack
---extractInserts :: ByteString -> Either String [String]
---extractInserts bs = (JS.runGetJSON JS.readJSObject str)
---  where str = T.unpack . E.decodeASCII $ bs
---        eObj = JS.runGetJSON JS.readJSObject str
---        maybeInserts = case eObj of
---          Left  msg -> error msg
---          Right obj -> J.get_field obj
---        insertArray = case maybeInserts of
---          Nothing -> []
---          Just is -> is
 
 bsToStr :: ByteString -> String
 bsToStr =  T.unpack . E.decodeUtf8
@@ -156,7 +146,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     --d <- nestSnaplet "dss" dss $ dssInit
     addRoutes routes
     addAuthSplices auth
-    cref <- liftIO $ newIORef "" --kezdetben ures
+    cref <- liftIO $ newIORef dss_init --kezdetben ures
     --addSplices $ map (second liftHeist) [("fact",factSplice)]
     return $ App h s a cref
 

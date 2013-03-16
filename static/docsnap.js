@@ -1,4 +1,5 @@
 
+
 function wrapCaretWithSpan() {
     var sel = window.getSelection();
     if (sel.rangeCount <= 0)
@@ -32,39 +33,46 @@ function    removeCaretSpan() {
     }
 }
 
-var syncText = "";
 
-//actText stores the filtered content
-var actText = "";
+function    getActText() {
+    return $('#editor').html();
+}
 
+function    setActText(t) {
+    return $('#editor').html(t);
+}
+
+function    prepareJsonData(ses) {
+    return { diff: ses };
+}
+
+diffEngine = new DiffEngine("");
+
+setInterval(synchronizeContent, 5000);
 function    synchronizeContent() {
-    var sentText = actText();
-    var sentSes = DiffEngine.getSES(syncText, sentText);
+    var sentText = getActText();
+    var sentSes = diffEngine.getSES(sentText);
+    //diffEngine.executeSES1(sentSes);
+    var sentData = prepareJsonData( sentSes );
     $.ajax({
         url     : "/cupdate",
         type    : "POST",
         dataType: "json",
         cache   : false,
         data    : {
-            d: JSON.stringify(sentSes)
+            d: JSON.stringify(sentData)
         },
         success : function(json) { // { 'data' : [ { 'value' : string, 'type' : char } ]
             wrapCaretWithSpan();
-
-            var localSes = DiffEngine.getSES(syncText, actText());
-            var globalSes = DiffEngine.convertJsonToSes(json);
-//            var newSyncText = DiffEngine.execute([localSes, globalSes], syncText);
-//            syncText = newSyncText;
-            syncText = DiffEngine.executeSES([localSes, globalSes], syncText);
-//            syncText = newSyncText;
-/*
-            var applied1 = JsDiff.applyCharChanges1(syncText, serverDiff);
-            var applied2 = JsDiff.applyCharChanges2(syncText, serverDiff, myDiffSinceSync);
-  */
-
+            var actText = getActText();
+            var localSes = diffEngine.getSES(actText);
+            var globalSes = diffEngine.convertJsonToSes(json);
+            diffEngine.executeES2(localSes, globalSes);
+            setActText(diffEngine._syncText); //ezt oninputban kellene csinalni
+            jumpToCaretSpan();
         },
         error : function( xhr, status ) {
-            alert("Sorry, there was a problem!");
+            //console.log("Sorry, there was a problem!");
         },
         // code to run regardless of success or failure
         complete : function( xhr, status ) {
@@ -73,6 +81,4 @@ function    synchronizeContent() {
     });
 }
 
-function    actText() {
-    return $('#editor').html();
-}
+
