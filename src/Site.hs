@@ -46,6 +46,7 @@ import Control.Arrow hiding (app)
 
 import Data.Aeson.TH
 import qualified Data.Aeson as A
+import Snap.Snaplet.Session
 
 
 -- tartalom kibontasa
@@ -65,20 +66,35 @@ handleContentUpdate :: Handler App App ()
 handleContentUpdate = method POST getter
   where
     getter = do
-      ccp <- getParam "d"
-      dssRef <- gets _dss
-      case ccp of
-        Nothing -> return () --updateClient scRef
-        Just c  | (not . B.null) c -> storeContent dssRef (fromJust $ syncObject c)
-                | otherwise -> return () -- storeContent dssRef
+      maybeContributor <- with sessionLens $ getFromSession "contributor"
+      case maybeContributor of
+        Nothing -> liftIO $ putStrLn "*INVALID CONTRIBUTOR"
+        Just contrib -> do
+          liftIO $ putStrLn ("Contributor :" ++ show contrib)
+          ccp <- getParam "d"
+          case ccp of
+            Nothing -> return () --send back all revision
+            Just c  | (not . B.null) c ->  handleCommit (fromJust $ maybeCommitData c)
+                    | otherwise -> return () --error
 
+    handleCommit :: CommitData -> Handler App App ()
+    handleCommit cdata = do
+      commit cdata
+      return ()
+
+--csak azt kuldjuk vissza, amit a tobbiek csinaltak
+{-
     updateClient dssRef = do
-      liftIO $ putStrLn "updateClient"
+      liftIO $ putStrLn "*updating client"
       dss <- liftIO $ readIORef dssRef --stored content
-      liftIO $ putStrLn $ (bsToStr . lbsToBs . A.encode) (dss_syncObject dss)
-      writeBS $ (lbsToBs . A.encode) (dss_syncObject dss)
+      liftIO $ putStrLn $ (bsToStr . lbsToBs . A.encode) $ preservedSO (baseContentOfEditScript (dss_syncObject dss))
+      writeSO $ preservedSO (baseContentOfEditScript (dss_syncObject dss))
+      --writeBS $ (lbsToBs . A.encode) (dss_syncObject dss)
+      liftIO $ putStrLn "*client updated"
+
 
     storeContent dssRef so = do
+      liftIO $ putStr "*storing syncobject: "
       liftIO $ putStrLn $ show so--"storeContent"
       --liftIO . putStrLn . bsToStr . lbsToBs . A.encode $ SyncObject { so_diff=[ (edit "abc" "+"), (edit "xxx" "-")] }
       liftIO $ modifyIORef' dssRef (\dss -> dss { dss_syncObject=so }) --atomicModifyIORef kell
@@ -86,7 +102,19 @@ handleContentUpdate = method POST getter
       --liftIO $ putStr "new value: "
       --liftIO $ B.putStrLn sc
       updateClient dssRef --itt ujra kiolvassuk, hatha szukseg van ra
+      liftIO $ putStrLn "*syncobject stored"
+-}
 
+handleSayHello :: Handler App App ()
+handleSayHello = method POST getter
+  where
+    getter = do
+      liftIO $ putStrLn "*client is saying hello"
+      with sessionLens $ setInSession "contributor" "0"
+      with sessionLens $ commitSession
+      --visszakuldjuk neki az osszes reviziot
+      revs <- getRevisions
+      writeJSON revs
 
 modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = do
@@ -102,14 +130,23 @@ applyInserts is bs = foldl (\b i -> apply i b) bs is
                 cnt = (content :: Insert -> String) ins
 -}
 
+--preservedSO "" = EditScript []
+--preservedSO s = EditScript { so_diff=[Edit {edit_value=s, edit_type="="}]}
+
+--writeSO so = writeBS $ (lbsToBs . A.encode) so
+writeJSON rd = writeBS $ (lbsToBs . A.encode) rd
+
 lbsToBs :: BL.ByteString -> B.ByteString
 lbsToBs = B.pack . BL.unpack
 
 bsToLbs :: B.ByteString -> BL.ByteString
 bsToLbs = BL.pack . B.unpack
 
-syncObject :: ByteString -> Maybe SyncObject
-syncObject = A.decode . BL.pack . B.unpack
+
+maybeCommitData :: ByteString -> Maybe EditScript
+maybeCommitData = A.decode . BL.pack . B.unpack
+--syncObject :: ByteString -> Maybe EditScript
+--syncObject = A.decode . BL.pack . B.unpack
 
 bsToStr :: ByteString -> String
 bsToStr =  T.unpack . E.decodeUtf8
@@ -125,7 +162,8 @@ strToBs =  E.encodeUtf8 . T.pack
 ------------------------------------------------------------------------------
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
-routes = [ ("/cupdate",  handleContentUpdate)
+routes = [ ("chello",   handleSayHello)
+         , ("cupdate",  handleContentUpdate)
          , ("",          serveDirectory "static")
          ]
 
@@ -135,18 +173,19 @@ routes = [ ("/cupdate",  handleContentUpdate)
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     h <- nestSnaplet "" heist $ heistInit "templates"
-    s <- nestSnaplet "sess" sess $
+    s <- nestSnaplet "sess" sessionLens $
            initCookieSessionManager "site_key.txt" "sess" (Just 3600)
 
     -- NOTE: We're using initJsonFileAuthManager here because it's easy and
     -- doesn't require any kind of database server to run.  In practice,
     -- you'll probably want to change this to a more robust auth backend.
     a <- nestSnaplet "auth" auth $
-           initJsonFileAuthManager defAuthSettings sess "users.json"
+           initJsonFileAuthManager defAuthSettings sessionLens "users.json"
+    rc <- nestSnaplet "revctrl" revLens $ revisionControlInit
     --d <- nestSnaplet "dss" dss $ dssInit
     addRoutes routes
     addAuthSplices auth
-    cref <- liftIO $ newIORef dss_init --kezdetben ures
+    --cref <- liftIO $ newIORef dss_init --kezdetben ures
     --addSplices $ map (second liftHeist) [("fact",factSplice)]
-    return $ App h s a cref
+    return $ App h s a cref rc
 

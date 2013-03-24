@@ -34,7 +34,8 @@ Executable DocSnap
     xmlhtml                   >= 0.1     && < 0.3,
     data-lens,
     comonad-transformers,
-    aeson
+    aeson,
+    containers
 
   if flag(development)
     build-depends:
@@ -53,7 +54,7 @@ Executable DocSnap
     else
       ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -O2
                    -fno-warn-orphans
-  other-modules:  
+  other-modules:
                   DocSnapServer,
                   Internal.Types,
                   Internal.JSON

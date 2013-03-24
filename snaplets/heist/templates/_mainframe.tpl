@@ -2,8 +2,16 @@
 <h1>DocSnap Eszköztár</h1>
 <p>childIndex </p><div id="caretchildindex">X</div>
 <p>childOffset </p><div id="caretoffset">X</div> <br/>
-
-<div id="editor" class="editorinput" contenteditable="true"> </div>
+<table>
+<tr>
+<td>
+<div id="editor" class="editorinput" contenteditable="true"></div>
+</td>
+<td>
+<div id="preview" class="editorinput" contenteditable="false"></div>
+</td>
+</tr>
+</table>
 
 
 
