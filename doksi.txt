@@ -1,0 +1,11 @@
+*)Szinkronizálás
+################
+
+txt = getContent
+unwrapColorSpan(txt, authorColor, range)
+-------
+-------
+-------
+wrapColorSpan(txt, authorColor, range)
+setContent = txt;
+

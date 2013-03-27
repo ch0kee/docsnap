@@ -79,15 +79,13 @@ function    synchronizeContent() {
 
 
     /////
-      var globalSes = convertJsonToSes(json);
-      var oldSyncContent = synchronizedContent;
-      synchronizedContent = diffEngine.executeES2(synchronizedContent, sentEditScript, globalSes);
-
       wrapCaretWithSpan();
-      var currentContent = actualContent();
-      var currentSes = diffEngine.getShortestEditScript(oldSyncContent, currentContent);
-      var mergedContent = diffEngine.executeES2(oldSyncContent, globalSes, currentSes);
-      actualContent(mergedContent);
+
+      var localSes = diffEngine.getShortestEditScript(synchronizedContent, actualContent());
+      var globalSes = convertJsonToSes(json);
+
+      synchronizedContent = diffEngine.executeES2(synchronizedContent, localSes, globalSes);
+
       jumpToCaretSpan();
       removeCaretSpan();
     },
