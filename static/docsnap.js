@@ -1,44 +1,42 @@
 
-
 function wrapCaretWithSpan() {
-    var sel = window.getSelection();
-    if (!sel || sel.rangeCount <= 0) {
-      console.log('no selection');
-      return;
-    }
-    removeCaretSpan();
-    var range = sel.getRangeAt(0);
-    var span = document.createElement("span");
-    span.setAttribute("id", "caretspan");
-    range.surroundContents(span);
-    sel.selectAllChildren(span);
-    //sel.removeAllRanges();
-    //sel.addRange(range);
+  var sel = window.getSelection();
+  if (!sel || sel.rangeCount <= 0) {
+    console.log('no selection');
+    return;
+  }
+  removeCaretSpan();
+  var range = sel.getRangeAt(0);
+  var span = document.createElement("span");
+  span.setAttribute("id", "caretspan");
+  range.surroundContents(span);
+  sel.selectAllChildren(span);
+  //sel.removeAllRanges();
+  //sel.addRange(range);
 }
 
 function jumpToCaretSpan() {
-    $('#editor').focus();
-    var sel = window.getSelection();
-    if (!sel) {
-      console.log('no selection');
-      return;
-    }
-    var span = document.getElementById("caretspan");
-    if (span) {
-        sel.selectAllChildren(span);
-    }
+  $('#editor').focus();
+  var sel = window.getSelection();
+  if (!sel) {
+    console.log('no selection');
+    return;
+  }
+  var span = document.getElementById("caretspan");
+  if (span) {
+    sel.selectAllChildren(span);
+  }
 }
 
 function    removeCaretSpan() {
-    if ($('#caretspan').length > 0) {
-        if ($('#caretspan').contents().length > 0) {
-            $('#caretspan').contents().unwrap();
-        } else {
-            $('#caretspan').remove();
-        }
+  if ($('#caretspan').length > 0) {
+    if ($('#caretspan').contents().length > 0) {
+      $('#caretspan').contents().unwrap();
+    } else {
+      $('#caretspan').remove();
     }
+  }
 }
-
 
 function  actualContent(newContent) {
   if (actualContent.arguments.length == 0)
@@ -47,50 +45,62 @@ function  actualContent(newContent) {
     $('#editor').html(newContent);
 }
 
-
-
-convertJsonToS
 diffEngine = new DiffEngine();
 
-synchronizedContent = "";
-currentRevision = "";
+syncContent = "";
+currentRevision = 0; //0. revision is the empty content
 
-function    synchronizeContent() {
+function  synchronizeContent() {
   var sentContent = actualContent();
-  var sentEditScript = diffEngine.getShortestEditScript(synchronizedContent, sentContent);
-  //diffEngine.executeSES1(sentSes);
-  var sentJSONData = { editscript: sentEditScript, currentrevision: currentRevision };
-  console.log('sending' + JSON.stringify(sentJSONData));
+  var sentChanges = diffEngine.getShortestEditScript(syncContent, sentContent);
+  var sentRevision = currentRevision.toString() + sentChanges;
+  console.log('sending ' + sentRevision);
+
   $.ajax({
     url     : "/cupdate",
     type    : "POST",
-    dataType: "json",
+    dataType: "html",
     cache   : false,
     data    : {
       d: JSON.stringify(sentJSONData)
     },
-    success : function(json) { // { 'data' : [ { 'value' : string, 'type' : char } ]
-    /////
-    success : function(revisions) { // { 'data' : [ { 'value' : string, 'type' : char } ]
-      for(var i = 0; i < revisions.length; ++i) {
-        synchronizedContent = diffEngine.executeSES1(synchronizedContent, revisions[i].editscript);
-        currentRevision = revisions[i].id;
-      }
-
-
-    /////
+    success : function(revision) { // { 'data' : [ { 'value' : string, 'type' : char } ]
       wrapCaretWithSpan();
 
-      var localSes = diffEngine.getShortestEditScript(synchronizedContent, actualContent());
-      var globalSes = convertJsonToSes(json);
+      var actContent = actualContent();
+      var cliChanges = diffEngine.getShortestEditScript(syncContent, actContent);
 
-      synchronizedContent = diffEngine.executeES2(synchronizedContent, localSes, globalSes);
+      var srvVersion = parseInt(revision);
+      var srvChangesIndex = revision.indexOf('[');
+      var checkoutOnly = srvChangesIndex != -1;
+/*
+      var authorRanges = json.authorRanges;
+      authorRanges = { 'authorid' : [ (from, length) ] }
+*/
+      if (checkoutOnly) {
+        //other authors made commits since last checkout
+        //checkout only :(
+        var srvChanges = revision.substr(srvChangesIndex);
+        syncContent = diffEngine.executeES1(syncContent, srvChanges);
+        currentRevision = srvRevision;
 
+        //merge local changes with repository revision
+        var actViewContent = diffEngine.executeES2(syncContent, cliChanges, srvChanges);
+        actualContent(actViewContent);
+      } else {
+        //client was up-to-date and sent changes are the current server revision
+        syncContent = diffEngine.executeES1(syncContent, sentChanges);
+        currentRevision = srvRevision;
+
+        //so we can display the latest local changes instead of that
+        var actViewContent = diffEngine.executeES1(syncContent, cliChanges);
+        actualContent(actViewContent);
+      }
       jumpToCaretSpan();
       removeCaretSpan();
     },
     error : function( xhr, status ) {
-      console.log("Sorry, there was a problem!");
+      console.log("** error during synchronization");
     },
     complete : function( xhr, status ) {
       //alert("The request is complete!");
@@ -99,34 +109,41 @@ function    synchronizeContent() {
 }
 
 $(document).ready(function() {
+  //start loading progress bar
   $.ajax({
-      url     : "chello",
-      type    : "POST",
-      dataType: "json",
-      cache   : false,
-      data    : {
-          d: "hello"
-      },
-      success : function(revisions) { // { 'revisions': [ 'id' : string, 'editscript':[ { 'value' : string, 'type' : char } ] ]}
-        console.log("Kewl, we said hello!");
-        synchronizedContent = "";
-        for(var i = 0; i < revisions.length; ++i) {
-          synchronizedContent = diffEngine.executeSES1(synchronizedContent, revisions[i].editscript);
-          currentRevision = revisions[i].id;
-        }
-        setInterval(synchronizeContent, 1000);
-      },
-      error : function( xhr, status ) {
-        console.log("Sorry, there was a problem!");
-      },
-      complete : function( xhr, status ) {
-          //alert("The request is complete!");
-      }
+    url     : "chello",
+    type    : "POST",
+    dataType: "json",
+    cache   : false,
+    data    : {
+        d: "hello"
+    },
+    success : function(json) { // { 'revisions': [ 'id' : string, 'editscript':[ { 'value' : string, 'type' : char } ] ]}
+      console.log("Kewl, we said hello!");
+      var srvRevision = json.revision.version; //latest revision
+      var srvChanges = json.revision.editscript; //merged revisions since synchronization
+//      var checkoutOnly = json.checkout; //true iff we dont have the latest revision, so we just checkout
+
+      //set content
+      syncContent = "";
+      syncContent = diffEngine.executeES1(syncContent, srvChanges);
+      currentRevision = srvRevision;
+
+      //stop loading progress bar
+
+      setInterval(synchronizeContent, 1000);
+    },
+    error : function( xhr, status ) {
+      console.log("Sorry, there was a problem!");
+    },
+    complete : function( xhr, status ) {
+      //alert("The request is complete!");
+    }
   });
 });
 
 function showPreview() {
- $('#preview').text( actualContent() );
+  $('#preview').text( actualContent() );
 }
 
 

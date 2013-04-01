@@ -48,6 +48,8 @@ import Data.Aeson.TH
 import qualified Data.Aeson as A
 import Snap.Snaplet.Session
 
+import Serialize
+
 
 -- tartalom kibontasa
 fromMaybeContent :: Maybe ByteString -> ByteString
@@ -73,13 +75,13 @@ handleContentUpdate = method POST getter
           liftIO $ putStrLn ("Contributor :" ++ show contrib)
           ccp <- getParam "d"
           case ccp of
-            Nothing -> return () --send back all revision
-            Just c  | (not . B.null) c ->  handleCommit (fromJust $ maybeCommitData c)
+            Nothing -> return () --error
+            Just c  | (not . B.null) c -> handleCommit c
                     | otherwise -> return () --error
 
-    handleCommit :: CommitData -> Handler App App ()
+    handleCommit :: ByteString -> Handler App App ()
     handleCommit cdata = do
-      commit cdata
+      commit $ bsToStr cdata
       return ()
 
 --csak azt kuldjuk vissza, amit a tobbiek csinaltak
@@ -114,7 +116,7 @@ handleSayHello = method POST getter
       with sessionLens $ commitSession
       --visszakuldjuk neki az osszes reviziot
       revs <- getRevisions
-      writeJSON revs
+      writeBS $ serialize revs
 
 modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = do
@@ -134,7 +136,7 @@ applyInserts is bs = foldl (\b i -> apply i b) bs is
 --preservedSO s = EditScript { so_diff=[Edit {edit_value=s, edit_type="="}]}
 
 --writeSO so = writeBS $ (lbsToBs . A.encode) so
-writeJSON rd = writeBS $ (lbsToBs . A.encode) rd
+--writeJSON rd = writeBS $ (lbsToBs . A.encode) rd
 
 lbsToBs :: BL.ByteString -> B.ByteString
 lbsToBs = B.pack . BL.unpack

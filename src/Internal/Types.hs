@@ -1,12 +1,17 @@
-module Internal.Types 
-  (Edit)
+module Internal.Types
+  (Content, Length, Edit(..), Version, Revision(..), Response(..))
 where
 
 
-type Index = Int
-type Length = Int
 type Content = String
-data Edit = Insert (Index, Content)
---        | Modify (Index, Content) egyelore emulaljuk insert,remove parral
-          | Remove (Index, Length) 
-          
+type Length = Int
+data Edit = Insert Char | Preserve | Remove
+  deriving (Show)
+
+type Version = Int
+data Revision = Revision ([Edit], Version)
+  deriving (Show)
+
+data Response  = CommitSuccessful Version
+              | CheckoutOnly Revision
+  deriving (Show)

@@ -1,60 +1,45 @@
-Name:                DocSnap
-Version:             0.1.3
-Synopsis:            Project Synopsis Here
-Description:         Project Description Here
-License:             AllRightsReserved
-Author:              László Vida
-Maintainer:          csokkerfalva@gmail.com
-Stability:           Experimental
-Category:            Web
-Build-type:          Simple
-Cabal-version:       >= 1.2
+name: DocSnap
+version: 0.1.3
+cabal-version: >=1.2
+build-type: Simple
+license: AllRightsReserved
+license-file: ""
+maintainer: csokkerfalva@gmail.com
+stability: Experimental
+synopsis: Project Synopsis Here
+description: Project Description Here
+category: Web
+author: László Vida
+data-dir: ""
 
-Flag development
-  Description: Whether to build the server in development (interpreted) mode
-  Default: True
+flag development
+    Description:  Whether to build the server in development (interpreted) mode
 
-Executable DocSnap
-  hs-source-dirs: src
-  main-is: Main.hs
+executable DocSnap
+    build-depends: base >=4 && <5, bytestring >=0.9.1 && <0.11,
+                   heist >=0.11 && <0.12, lens >=3.7.0.1 && <3.9,
+                   MonadCatchIO-transformers >=0.2 && <0.4, mtl >=2 && <2.2,
+                   snap >=0.10.0 && <=0.11.0, snap-core >=0.9 && <0.11,
+                   snap-server >=0.9 && <0.11, snap-loader-static >=0.9 && <0.10,
+                   text >=0.11 && <0.12, time >=1.1 && <1.5, xmlhtml >=0.1 && <0.3,
+                   data-lens -any, comonad-transformers -any, aeson -any,
+                   containers -any, parsec -any
 
-  Build-depends:
-    base                      >= 4       && < 5,
-    bytestring                >= 0.9.1   && < 0.11,
-    heist                     >= 0.11    && < 0.12,
-    lens                      >= 3.7.0.1 && < 3.9,
-    MonadCatchIO-transformers >= 0.2   && < 0.4,
-    mtl                       >= 2       && < 2.2,
-    snap                      >= 0.10.0    && <= 0.11.0,
-    snap-core                 >= 0.9     && < 0.11,
-    snap-server               >= 0.9     && < 0.11,
-    snap-loader-static        >= 0.9     && < 0.10,
-    text                      >= 0.11    && < 0.12,
-    time                      >= 1.1     && < 1.5,
-    xmlhtml                   >= 0.1     && < 0.3,
-    data-lens,
-    comonad-transformers,
-    aeson,
-    containers
-
-  if flag(development)
-    build-depends:
-      snap-loader-dynamic == 0.10.*
-    cpp-options: -DDEVELOPMENT
-    -- In development mode, speed is already going to suffer, so skip
-    -- the fancy optimization flags.  Additionally, disable all
-    -- warnings.  The hint library doesn't give an option to execute
-    -- compiled code when there were also warnings, so disabling
-    -- warnings allows quicker workflow.
-    ghc-options: -threaded -w
-  else
-    if impl(ghc >= 6.12.0)
-      ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -O2
-                   -fno-warn-orphans -fno-warn-unused-do-bind
+    if flag(development)
+        build-depends: snap-loader-dynamic ==0.10.*
+        buildable: True
+        cpp-options: -DDEVELOPMENT
+        ghc-options: -threaded -w
     else
-      ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -O2
-                   -fno-warn-orphans
-  other-modules:
-                  DocSnapServer,
-                  Internal.Types,
-                  Internal.JSON
+
+        if impl(ghc >=6.12.0)
+            buildable: True
+            ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -O2 -fno-warn-orphans -fno-warn-unused-do-bind
+        else
+            buildable: True
+            ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -O2 -fno-warn-orphans
+        buildable: True
+    main-is: Main.hs
+    buildable: True
+    hs-source-dirs: src
+    other-modules: Serialize DocSnapServer Internal.Types

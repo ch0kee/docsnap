@@ -1,6 +1,11 @@
-*)Szinkronizálás
-################
+TODO:
+js oldalon az editscriptből ki kell venni a value-t
+rem/eq-nál
 
+hs oldalon a serializálás során össze kell fűzni a karaktereket
+
+*)Synchronize
+#############
 txt = getContent
 unwrapColorSpan(txt, authorColor, range)
 -------
@@ -9,3 +14,28 @@ unwrapColorSpan(txt, authorColor, range)
 wrapColorSpan(txt, authorColor, range)
 setContent = txt;
 
+*)Schedule
+##########
+- Give priorities by Round-robin to authors, when
+more of them are waiting to commit, this avoids starving
+
+*)Commit
+########
+CLIENT
+- send (my_revision, my_changes)
+- (server_revision, server_changes) = receive
+- if (empty server_changes)
+    syncText #= my_changes
+    my_revision = server_revision
+  else //we are out of date
+    //server sends only one edit script, that consists of all intermediate revisions
+    syncText #= server_changes
+    act_content #= (server_changes, my_changes)
+    my_revision = server_revision
+
+
+natural :: ParsecT s u m Integer
+This lexeme parser parses a natural number (a positive whole number).
+Returns the value of the number. The number can be specified in decimal,
+hexadecimal or octal. The number is parsed according to the grammar rules
+in the Haskell report.
