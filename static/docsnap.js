@@ -53,18 +53,26 @@ currentRevision = 0; //0. revision is the empty content
 function  synchronizeContent() {
   var sentContent = actualContent();
   var sentChanges = diffEngine.getShortestEditScript(syncContent, sentContent);
+  //ne küldjük el, ha nem változott semmi
+  var n=sentChanges.match(/^\[=[0-9]+\]$/);
+  if (n == sentChanges) {
+    sentChanges = "[]";
+  }
+
   var sentRevision = currentRevision.toString() + sentChanges;
   console.log('sending ' + sentRevision);
 
   $.ajax({
-    url     : "/cupdate",
+    url     : "cupdate",
     type    : "POST",
     dataType: "html",
     cache   : false,
     data    : {
-      d: JSON.stringify(sentJSONData)
+      d: sentRevision
     },
     success : function(revision) { // { 'data' : [ { 'value' : string, 'type' : char } ]
+      console.log('received ' + revision);
+
       wrapCaretWithSpan();
 
       var actContent = actualContent();
@@ -82,7 +90,7 @@ function  synchronizeContent() {
         //checkout only :(
         var srvChanges = revision.substr(srvChangesIndex);
         syncContent = diffEngine.executeES1(syncContent, srvChanges);
-        currentRevision = srvRevision;
+        currentRevision = srvVersion;
 
         //merge local changes with repository revision
         var actViewContent = diffEngine.executeES2(syncContent, cliChanges, srvChanges);
@@ -90,7 +98,7 @@ function  synchronizeContent() {
       } else {
         //client was up-to-date and sent changes are the current server revision
         syncContent = diffEngine.executeES1(syncContent, sentChanges);
-        currentRevision = srvRevision;
+        currentRevision = srvVersion;
 
         //so we can display the latest local changes instead of that
         var actViewContent = diffEngine.executeES1(syncContent, cliChanges);
@@ -109,36 +117,37 @@ function  synchronizeContent() {
 }
 
 $(document).ready(function() {
-  //start loading progress bar
-  $.ajax({
-    url     : "chello",
-    type    : "POST",
-    dataType: "json",
-    cache   : false,
-    data    : {
-        d: "hello"
-    },
-    success : function(json) { // { 'revisions': [ 'id' : string, 'editscript':[ { 'value' : string, 'type' : char } ] ]}
-      console.log("Kewl, we said hello!");
-      var srvRevision = json.revision.version; //latest revision
-      var srvChanges = json.revision.editscript; //merged revisions since synchronization
-//      var checkoutOnly = json.checkout; //true iff we dont have the latest revision, so we just checkout
+  $('#sync').click( synchronizeContent );
 
-      //set content
-      syncContent = "";
-      syncContent = diffEngine.executeES1(syncContent, srvChanges);
-      currentRevision = srvRevision;
+  $('#hello').click( function() {
+    //start loading progress bar
+    $.ajax({
+      url     : "chello",
+      type    : "POST",
+      dataType: "html",
+      cache   : false,
+      data    : {
+          d: "hello"
+      },
+      success : function(revision) {
+        console.log("Kewl, we said hello!");
+        console.log(revision);
+        var srvVersion = parseInt(revision);
+        var srvChangesIndex = revision.indexOf('[');
+        var srvChanges = revision.substr(srvChangesIndex);
+        syncContent = diffEngine.executeES1(syncContent, srvChanges);
+        currentRevision = srvVersion;
+        actualContent(syncContent);
 
-      //stop loading progress bar
-
-      setInterval(synchronizeContent, 1000);
-    },
-    error : function( xhr, status ) {
-      console.log("Sorry, there was a problem!");
-    },
-    complete : function( xhr, status ) {
-      //alert("The request is complete!");
-    }
+     //   setInterval(synchronizeContent, 1000);
+      },
+      error : function( xhr, status ) {
+        console.log("Sorry, there was a problem!");
+      },
+      complete : function( xhr, status ) {
+        //alert("The request is complete!");
+      }
+    });
   });
 });
 

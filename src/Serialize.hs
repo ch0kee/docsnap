@@ -14,7 +14,8 @@
 
 module Serialize (
   parseEditScript,
-  parseRevision
+  parseRevision,
+  serialize
 ) where
 
 
@@ -37,9 +38,11 @@ serialize (Revision (es, v)) = (show v) ++ ('[':(serialize' es)++"]")
   where
     serialize' :: [Edit] -> String
     serialize' [] = ""
-    serialize' (Insert c:rest) = "
-    serialize' (Insert c:rest) = "
-    serialize' (Insert c:rest) = "
+    serialize' (e:es) = foldl (\s e' -> s ++ ('|':serialize'' e')) (serialize'' e) es
+      where
+        serialize'' (Insert c) = "+1:"++[c]
+        serialize'' Remove = "-1"
+        serialize'' Preserve = "=1"
 
 parseEditScript :: String -> Either ParseError [Edit]
 parseEditScript input = parse editscript "error" input
@@ -69,6 +72,7 @@ insert :: CharParser () [Edit]
 insert = do
   char '+'
   n <- natural
+  char ':'
   ins <- count (fromInteger n) anyChar
   mapM (\c -> return $ Insert c) ins
 

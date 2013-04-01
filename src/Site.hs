@@ -49,6 +49,7 @@ import qualified Data.Aeson as A
 import Snap.Snaplet.Session
 
 import Serialize
+import Internal.Types
 
 
 -- tartalom kibontasa
@@ -59,6 +60,7 @@ fromMaybeContent Nothing = B.empty
 --data Insert = Insert { index :: Int, content :: String }
 --  deriving (Show)
 
+logDSS = liftIO . putStrLn
 
 -- $(deriveJSON id ''Insert)
 -- $(deriveJSON id ''Remove)
@@ -70,19 +72,30 @@ handleContentUpdate = method POST getter
     getter = do
       maybeContributor <- with sessionLens $ getFromSession "contributor"
       case maybeContributor of
-        Nothing -> liftIO $ putStrLn "*INVALID CONTRIBUTOR"
+        Nothing -> logDSS "*INVALID CONTRIBUTOR"
         Just contrib -> do
-          liftIO $ putStrLn ("Contributor :" ++ show contrib)
+          logDSS ("Contributor :" ++ show contrib)
           ccp <- getParam "d"
           case ccp of
-            Nothing -> return () --error
+            Nothing -> undefined --error
             Just c  | (not . B.null) c -> handleCommit c
-                    | otherwise -> return () --error
+                    | otherwise -> undefined --error
 
     handleCommit :: ByteString -> Handler App App ()
     handleCommit cdata = do
-      commit $ bsToStr cdata
-      return ()
+      logDSS ">> START HANDLE COMMIT"
+      logDSS ("RECEIVED [" ++ bsToStr cdata ++ "]")
+      response <- commit $ bsToStr cdata
+      case response of
+        CommitSuccessful v -> do
+          logDSS "COMMIT SUCCESSFUL"
+          writeBS $ strToBs $ show v
+          logDSS ("NEW VERSION [" ++ show v ++ "]")
+        CheckoutOnly r -> do
+          logDSS "CHECKOUT ONLY"
+          writeBS $ strToBs $ serialize r
+          logDSS ("CHECKED OUT [" ++ serialize r ++ "]")
+      logDSS "<< END HANDLE COMMIT"
 
 --csak azt kuldjuk vissza, amit a tobbiek csinaltak
 {-
@@ -116,7 +129,11 @@ handleSayHello = method POST getter
       with sessionLens $ commitSession
       --visszakuldjuk neki az osszes reviziot
       revs <- getRevisions
-      writeBS $ serialize revs
+      liftIO $ putStrLn "begin serialize"
+      liftIO $ putStrLn $ show (revs)
+      liftIO $ putStrLn $ serialize (concatRevisions revs)
+      liftIO $ putStrLn "end serialize"
+      writeBS $ strToBs $ serialize (concatRevisions revs)
 
 modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = do
@@ -143,12 +160,6 @@ lbsToBs = B.pack . BL.unpack
 
 bsToLbs :: B.ByteString -> BL.ByteString
 bsToLbs = BL.pack . B.unpack
-
-
-maybeCommitData :: ByteString -> Maybe EditScript
-maybeCommitData = A.decode . BL.pack . B.unpack
---syncObject :: ByteString -> Maybe EditScript
---syncObject = A.decode . BL.pack . B.unpack
 
 bsToStr :: ByteString -> String
 bsToStr =  T.unpack . E.decodeUtf8
@@ -189,5 +200,5 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     addAuthSplices auth
     --cref <- liftIO $ newIORef dss_init --kezdetben ures
     --addSplices $ map (second liftHeist) [("fact",factSplice)]
-    return $ App h s a cref rc
+    return $ App h s a rc
 

@@ -117,6 +117,7 @@ editJSONtoEdit (EditJSON { edit_type=t, edit_value=v })
 
 --egymas utan kovetkezo reviziok osszefuzese egybe
 concatRevisions :: [Revision] -> Revision
+concatRevisions [] = Revision ([], 0)
 concatRevisions (r:[]) = r
 concatRevisions (Revision (es1,v1): Revision (es2,v2):rest) = concatRevisions (Revision (concatES es1 es2, v2):rest)
   where
@@ -168,7 +169,7 @@ after v rs = dropWhile (\r -> (snd $ un_revision r) < v) rs
 -- rak [+2:ab|=3] abrak
 commit :: HasRevisionControl m => String -> m Response
 commit cdata = do
-  liftIO $ putStr "** committing"
+  liftIO $ putStrLn "** committing"
   case (parseRevision cdata) of
     Left msg  -> undefined --error msg
     Right rev -> do
@@ -186,8 +187,11 @@ commit cdata = do
               checkoutOnly [] = CheckoutOnly (Revision ([], v))
               checkoutOnly rs = CheckoutOnly (concatRevisions rs)
           commit' r@(Revision (es,v)) revs
-            | latestVersion revs == v = (revs ++ [r],CommitSuccessful (v+1)) --commit
+            | latestVersion revs == v = (revs ++ [r'],CommitSuccessful (v')) --commit
             | otherwise = (revs, CheckoutOnly (concatRevisions (after v revs)))
+                where
+                  r' = Revision (es, v')
+                  v' = v+1
 
 
 

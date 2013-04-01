@@ -44,13 +44,13 @@ ESIterator.prototype.preserving = function () {
 
 ESIterator.prototype.value = function() {
   if (this.inserting()) {
-    var start = this._es.indexOf(':', this._index);
+    var start = this._es.indexOf(':', this._index+1);
     if (start == -1) {
       alert('invalid input');
       return "";
     }
     var len = this.count();
-    var val = this._es.substr(start, len);
+    var val = this._es.substr(start+1, len);
     return val;
   } else {
     alert('not inserting');
@@ -190,12 +190,18 @@ DiffEngine.prototype._extractCommon = function(basePath, newString, oldString, d
 DiffEngine.prototype._fixify = function(editScript) {
   var value = "[";
   for(var i = 0; i < editScript.length; ++i) {
+
+    if (editScript[i].value.length == 0) {
+      continue;
+    }
+
+
     if (i > 0) {
       value += '|';
     }
 
     value += editScript[i].type;
-    value += editScript[i].value.length.toString()
+    value += editScript[i].value.length.toString();
     if (editScript[i].type == '+') {
       value += ':';
       value += editScript[i].value;
