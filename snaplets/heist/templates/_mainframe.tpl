@@ -1,7 +1,5 @@
 <h1>[DocSnap Fejléc]</h1>
 <h1>DocSnap Eszköztár</h1>
-<p>childIndex </p><div id="caretchildindex">X</div>
-<p>childOffset </p><div id="caretoffset">X</div> <br/>
 <table>
   <tr>
     <td> <button id="hello">HELLO</button> </td>

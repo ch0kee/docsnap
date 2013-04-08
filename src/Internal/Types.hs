@@ -13,5 +13,6 @@ data Revision = Revision ([Edit], Version)
   deriving (Show)
 
 data Response  = CommitSuccessful Version
-              | CheckoutOnly Revision
+               | CheckoutOnly Revision
+               | NoChanges
   deriving (Show)

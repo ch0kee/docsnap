@@ -74,7 +74,7 @@ handleContentUpdate = method POST getter
       case maybeContributor of
         Nothing -> logDSS "*INVALID CONTRIBUTOR"
         Just contrib -> do
-          logDSS ("Contributor :" ++ show contrib)
+--          logDSS ("Contributor :" ++ show contrib)
           ccp <- getParam "d"
           case ccp of
             Nothing -> undefined --error
@@ -87,73 +87,40 @@ handleContentUpdate = method POST getter
       logDSS ("RECEIVED [" ++ bsToStr cdata ++ "]")
       response <- commit $ bsToStr cdata
       case response of
-        CommitSuccessful v -> do
-          logDSS "COMMIT SUCCESSFUL"
-          writeBS $ strToBs $ show v
-          logDSS ("NEW VERSION [" ++ show v ++ "]")
-        CheckoutOnly r -> do
-          logDSS "CHECKOUT ONLY"
-          writeBS $ strToBs $ serialize r
-          logDSS ("CHECKED OUT [" ++ serialize r ++ "]")
+        CommitSuccessful v -> do --
+          writeBS $ strToBs $ 'd':(show v)
+          logDSS ("NEW VERSION [" ++ 'd':(show v) ++ "]")
+        CheckoutOnly r -> do --
+          writeBS $ strToBs $ 'o':(serialize r)
+          logDSS ("CHECKED OUT [" ++ 'o':(serialize r) ++ "]")
+        NoChanges -> do
+          writeBS $ strToBs $ "n"
+          logDSS ("NO CHANGES")
+
+
       logDSS "<< END HANDLE COMMIT"
 
 --csak azt kuldjuk vissza, amit a tobbiek csinaltak
-{-
-    updateClient dssRef = do
-      liftIO $ putStrLn "*updating client"
-      dss <- liftIO $ readIORef dssRef --stored content
-      liftIO $ putStrLn $ (bsToStr . lbsToBs . A.encode) $ preservedSO (baseContentOfEditScript (dss_syncObject dss))
-      writeSO $ preservedSO (baseContentOfEditScript (dss_syncObject dss))
-      --writeBS $ (lbsToBs . A.encode) (dss_syncObject dss)
-      liftIO $ putStrLn "*client updated"
-
-
-    storeContent dssRef so = do
-      liftIO $ putStr "*storing syncobject: "
-      liftIO $ putStrLn $ show so--"storeContent"
-      --liftIO . putStrLn . bsToStr . lbsToBs . A.encode $ SyncObject { so_diff=[ (edit "abc" "+"), (edit "xxx" "-")] }
-      liftIO $ modifyIORef' dssRef (\dss -> dss { dss_syncObject=so }) --atomicModifyIORef kell
-      --sc <- liftIO $ readIORef scRef
-      --liftIO $ putStr "new value: "
-      --liftIO $ B.putStrLn sc
-      updateClient dssRef --itt ujra kiolvassuk, hatha szukseg van ra
-      liftIO $ putStrLn "*syncobject stored"
--}
 
 handleSayHello :: Handler App App ()
 handleSayHello = method POST getter
   where
     getter = do
-      liftIO $ putStrLn "*client is saying hello"
+      liftIO $ putStrLn "*START SAYING HELLO"
       with sessionLens $ setInSession "contributor" "0"
-      with sessionLens $ commitSession
+      with sessionLens commitSession
       --visszakuldjuk neki az osszes reviziot
       revs <- getRevisions
-      liftIO $ putStrLn "begin serialize"
-      liftIO $ putStrLn $ show (revs)
+      liftIO $ putStrLn $ show revs
       liftIO $ putStrLn $ serialize (concatRevisions revs)
-      liftIO $ putStrLn "end serialize"
       writeBS $ strToBs $ serialize (concatRevisions revs)
+      liftIO $ putStrLn "*END SAYING HELLO"
 
 modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = do
   x <- readIORef ref
   let x' = f x
   x' `seq` writeIORef ref x'
-
-{-
-applyInserts :: [Insert] -> ByteString -> ByteString
-applyInserts is bs = foldl (\b i -> apply i b) bs is
-  where apply (ins) b = B.concat [B.take idx b, strToBs cnt, B.drop idx b]
-          where idx = (index :: Insert -> Int) ins
-                cnt = (content :: Insert -> String) ins
--}
-
---preservedSO "" = EditScript []
---preservedSO s = EditScript { so_diff=[Edit {edit_value=s, edit_type="="}]}
-
---writeSO so = writeBS $ (lbsToBs . A.encode) so
---writeJSON rd = writeBS $ (lbsToBs . A.encode) rd
 
 lbsToBs :: BL.ByteString -> B.ByteString
 lbsToBs = B.pack . BL.unpack
@@ -166,11 +133,6 @@ bsToStr =  T.unpack . E.decodeUtf8
 
 strToBs :: String -> ByteString
 strToBs =  E.encodeUtf8 . T.pack
-
---        res = J.decode . T.unpack . E.decodeASCII $ bs
-
-
-      --writeBS $ (E.encodeUtf8 . T.toLower . E.decodeUtf8) s
 
 ------------------------------------------------------------------------------
 -- | The application's routes.

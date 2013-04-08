@@ -105,7 +105,7 @@ DiffEngine.prototype.executeES1 = function(content, ses) {
     }
 
     if (s.valid() && i < content.length) {
-      var keep = s.isPreserving();
+      var keep = s.preserving();
       if (keep) {
         result += content[i];
       }

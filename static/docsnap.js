@@ -49,11 +49,14 @@ diffEngine = new DiffEngine();
 
 syncContent = "";
 currentRevision = 0; //0. revision is the empty content
+applyCommittedChanges = true; //alkalmazzuk-e a módosításokat külön,
+//vagy egyszerűen használjuk az elküldéskor érvényes tartalmat
+//(false is the way to go)
 
 function  synchronizeContent() {
   var sentContent = actualContent();
   var sentChanges = diffEngine.getShortestEditScript(syncContent, sentContent);
-  //ne küldjük el, ha nem változott semmi
+  //üres listát küldjünk, ha nem változott semmi
   var n=sentChanges.match(/^\[=[0-9]+\]$/);
   if (n == sentChanges) {
     sentChanges = "[]";
@@ -70,42 +73,56 @@ function  synchronizeContent() {
     data    : {
       d: sentRevision
     },
-    success : function(revision) { // { 'data' : [ { 'value' : string, 'type' : char } ]
+    success : function(revision) {
       console.log('received ' + revision);
+      var respondType = revision[0];
+      if (respondType == 'n') {
+        console.log('no changes at all');
+        if (revision.length != 1) {
+          //error
+        }
+        return;
+      }
 
-      wrapCaretWithSpan();
-
+//      wrapCaretWithSpan();
+      var srvVersion = parseInt(revision.substr(1), 10);
       var actContent = actualContent();
       var cliChanges = diffEngine.getShortestEditScript(syncContent, actContent);
+      var oldSyncContent = syncContent;
 
-      var srvVersion = parseInt(revision);
-      var srvChangesIndex = revision.indexOf('[');
-      var checkoutOnly = srvChangesIndex != -1;
-/*
-      var authorRanges = json.authorRanges;
-      authorRanges = { 'authorid' : [ (from, length) ] }
-*/
-      if (checkoutOnly) {
-        //other authors made commits since last checkout
-        //checkout only :(
-        var srvChanges = revision.substr(srvChangesIndex);
-        syncContent = diffEngine.executeES1(syncContent, srvChanges);
-        currentRevision = srvVersion;
+      switch(respondType) {
+        case 'd': //committed, dont have to do anything
+          console.log('commit start');
+//          syncContent = sentContent;
+          syncContent = diffEngine.executeES1(syncContent, sentChanges);
+          currentRevision = srvVersion;
 
-        //merge local changes with repository revision
-        var actViewContent = diffEngine.executeES2(syncContent, cliChanges, srvChanges);
-        actualContent(actViewContent);
-      } else {
-        //client was up-to-date and sent changes are the current server revision
-        syncContent = diffEngine.executeES1(syncContent, sentChanges);
-        currentRevision = srvVersion;
+          //so we can display the latest local changes instead of that
+          console.log('b) executeES1 start');
+          console.log('syncContent:' + syncContent);
+          console.log('cliChanges:' + cliChanges);
+          var actViewContent = diffEngine.executeES1(oldSyncContent, cliChanges);
+          actualContent(actViewContent);
+          console.log('commit done');
+          break;
+        case 'o': //checkout only
+          console.log('checkout only');
 
-        //so we can display the latest local changes instead of that
-        var actViewContent = diffEngine.executeES1(syncContent, cliChanges);
-        actualContent(actViewContent);
+          var srvChangesIndex = revision.indexOf('[');
+          var srvChanges = revision.substr(srvChangesIndex);
+          syncContent = diffEngine.executeES1(syncContent, srvChanges);
+          currentRevision = srvVersion;
+
+          //merge local changes with repository revision
+          var actViewContent = diffEngine.executeES2(oldSyncContent, cliChanges, srvChanges);
+          actualContent(actViewContent);
+          break;
+        default:
+          //error
+          break;
       }
-      jumpToCaretSpan();
-      removeCaretSpan();
+//      jumpToCaretSpan();
+//      removeCaretSpan();
     },
     error : function( xhr, status ) {
       console.log("** error during synchronization");
@@ -119,7 +136,7 @@ function  synchronizeContent() {
 $(document).ready(function() {
   $('#sync').click( synchronizeContent );
 
-  $('#hello').click( function() {
+//  $('#hello').click( function() {
     //start loading progress bar
     $.ajax({
       url     : "chello",
@@ -139,7 +156,7 @@ $(document).ready(function() {
         currentRevision = srvVersion;
         actualContent(syncContent);
 
-     //   setInterval(synchronizeContent, 1000);
+        setInterval(synchronizeContent, 1000);
       },
       error : function( xhr, status ) {
         console.log("Sorry, there was a problem!");
@@ -148,7 +165,7 @@ $(document).ready(function() {
         //alert("The request is complete!");
       }
     });
-  });
+//  });
 });
 
 function showPreview() {

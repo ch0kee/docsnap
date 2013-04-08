@@ -130,7 +130,8 @@ concatRevisions (Revision (es1,v1): Revision (es2,v2):rest) = concatRevisions (R
 
     concatES (Insert c:ls) (Preserve:rs) = (Insert c:concatES ls rs)
     concatES (Insert c:ls) (Remove:rs) = concatES ls rs
-    concatES (Insert c:ls) r = (Insert c:concatES ls r)
+    concatES l@(Insert _:ls) (Insert c:rs) = (Insert c:concatES l rs)
+    concatES [] r = r
 
 {-
 fold zipWith merge (splitCharRev r1) (splitCharRev r2)
@@ -163,28 +164,31 @@ nextVersion = (+1) . latestVersion
 
 --változások adott verzió után
 after :: Version -> [Revision] -> [Revision]
-after v rs = dropWhile (\r -> (snd $ un_revision r) < v) rs
+after v rs = dropWhile (\r -> (snd $ un_revision r) <= v) rs
 
 
 -- rak [+2:ab|=3] abrak
 commit :: HasRevisionControl m => String -> m Response
 commit cdata = do
-  liftIO $ putStrLn "** committing"
+  liftIO $ putStrLn $ ("%%% commit " ++ cdata)
   case (parseRevision cdata) of
     Left msg  -> undefined --error msg
     Right rev -> do
       rc <- getRevisionControlState
       let revMVar = rc_revisions rc
       revs <- liftIO $ takeMVar revMVar -- [Revision]
+      liftIO $ putStrLn $ "%%% clientRev: " ++ (show rev)
+      liftIO $ putStrLn $ "%%% oldRevs: " ++ (show revs)
       let new_rs = commit' rev revs
       liftIO $ putMVar revMVar (fst new_rs)
+      liftIO $ putStrLn $ "%%% newRevs: " ++ (show $ fst new_rs)
       return $ snd new_rs
         where
           commit' :: Revision -> [Revision] -> ([Revision], Response)
           commit' (Revision ([],v)) revs = (revs, checkoutOnly (after v revs))
             where
               checkoutOnly :: [Revision] -> Response
-              checkoutOnly [] = CheckoutOnly (Revision ([], v))
+              checkoutOnly [] = NoChanges --CheckoutOnly (Revision ([], v))
               checkoutOnly rs = CheckoutOnly (concatRevisions rs)
           commit' r@(Revision (es,v)) revs
             | latestVersion revs == v = (revs ++ [r'],CommitSuccessful (v')) --commit
