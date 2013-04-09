@@ -1,3 +1,6 @@
+goog.require('goog.asserts');
+goog.require('goog.debug.Logger');
+
 
 function wrapCaretWithSpan() {
   var sel = window.getSelection();
@@ -90,6 +93,8 @@ function  synchronizeContent() {
       var cliChanges = diffEngine.getShortestEditScript(syncContent, actContent);
       var oldSyncContent = syncContent;
 
+
+      currentRevision = srvVersion;
       switch(respondType) {
         case 'd': //committed, dont have to do anything
           console.log('commit start');
@@ -111,7 +116,6 @@ function  synchronizeContent() {
           var srvChangesIndex = revision.indexOf('[');
           var srvChanges = revision.substr(srvChangesIndex);
           syncContent = diffEngine.executeES1(syncContent, srvChanges);
-          currentRevision = srvVersion;
 
           //merge local changes with repository revision
           var actViewContent = diffEngine.executeES2(oldSyncContent, cliChanges, srvChanges);

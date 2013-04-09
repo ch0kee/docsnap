@@ -5,6 +5,7 @@
     <link rel="stylesheet" type="text/css" href="/styles.css"/>
     <script src="/jquery-1.9.1.js"></script>
     <script src="/jquerypp/jquerypp.js"> </script>
+    <script src="closure-library/closure/goog/base.js"></script>
     <script src="/diff.js"> </script>
     <script src="/docsnap.js"> </script>
   </head>

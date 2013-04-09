@@ -36,55 +36,6 @@ data DocSnapServer = DocSnapServer {
 }
 -}
 
-{-
-data EditJSON = EditJSON { ej_value :: String, ej_size :: Int, ej_type :: String }
-  deriving (Show) --atmenetileg
-data RevisionJSON = RevisionJSON { rj_version :: Int, rj_editscript :: [EditJSON] }
-  deriving (Show)
-data CheckoutDataJSON = CheckoutDataJSON {
-  cdj_revision :: RevisionJSON,
-  cdj_checkout :: Bool }
-
-
-class (A.ToJSON b) => Serializable a b
-  where
-    toSerializable  :: a -> b
-    fromSerializable :: b -> a
-
---4!!!!
-instance Serializable Edit EditJSON
-  where
-    toSerializable :: Edit -> EditJSON
-    toSerializable (Add c) = EditJSON (c:[]) 1 "+"
-    toSerializable Equal = EditJSON "" 1 "="
-    toSerializable Remove = EditJSON "" 1 "-"
-
-    fromSerializable :: EditJSON -> Edit
-    fromSerializable (EditJSON v s "+") = map Add v
-    fromSerializable (EditJSON v s "-") = replicate s Remove
-    fromSerializable (EditJSON v s "=") = replicate s Equal
-
-instance Serializable Revision RevisionJSON
-  where
-    toSerializable :: Revision -> RevisionJSON
-    toSerializable (Revision (es, v)) = RevisionJSON v (map toSerializable es)
-
-    fromSerializable :: RevisionJSON -> Revision
-    fromSerializable (RevisionJSON v es) = Revision (map fromSerializable es)
-
-
-serialize (A.ToJSON a) => a -> B.ByteString
-serialize = B.pack . BL.unpack . A.encode
-
-deserialize (A.FromJSON a) => B.ByteString -> a
-deserialize = A.decode . BL.pack . B.unpack
-
-
-$(deriveJSON (drop 3) ''EditJSON)
--- $(deriveJSON (drop 11) ''Commit)
-$(deriveJSON (drop 3) ''RevisionJSON)
-$(deriveJSON (drop 4) ''CheckoutDataJSON)
--}
 
 data RevisionControl = RevisionControl {
   rc_revisions :: MVar [Revision]
