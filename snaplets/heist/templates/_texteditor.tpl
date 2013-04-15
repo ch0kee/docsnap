@@ -1,2 +1,0 @@
-
-<div contenteditable="true"> </div>
