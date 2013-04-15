@@ -6,6 +6,8 @@
     <script src="/jquery-1.9.1.js"></script>
     <script src="/jquerypp/jquerypp.js"> </script>
     <script src="/rangy-1.2.3/rangy-core.js"> </script>
+    <script src="/rangy-1.2.3/rangy-selectionsaverestore.js"> </script>
+    <script src="/rangy-1.2.3/rangy-cssclassapplier.js"> </script>
     <script src="/utils.js"> </script>
     <script src="/diff.js"> </script>
     <script src="/docsnap.js"> </script>

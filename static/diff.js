@@ -117,7 +117,7 @@ DiffEngine.prototype.executeES1 = function(content, ses) {
 }
 
 // "[=14|+3:alm|-2]
-//ses1-nek magasabb a prioritasa
+//ses1-ben lévő insert előlrébb kerül be ugyanazon indexen!
 DiffEngine.prototype.executeES2 = function(content, ses1, ses2) {
 
   var s1 = new ESIterator(ses1);
@@ -201,10 +201,19 @@ DiffEngine.prototype._fixify = function(editScript) {
     }
 
     value += editScript[i].type;
-    value += editScript[i].value.length.toString();
+//    value += editScript[i].value.length.toString();
+// editScript[i].value nem egy sztring, hanem sztringek listája
+    var len = 0;
+    for(var j = 0; j < editScript[i].value.length; ++j) {
+      len += editScript[i].value[j].length;
+    }
+    value += len.toString();     
     if (editScript[i].type == '+') {
       value += ':';
-      value += editScript[i].value;
+//      value += editScript[i].value;
+      for(var j = 0; j < editScript[i].value.length; ++j) {
+        value += editScript[i].value[j];
+      }     
     }
   }
   value += ']';

@@ -4,3 +4,11 @@
     height: 100px;
     word-wrap: break-word;
 }
+
+.ds_bold {
+  font-weight: bold;
+}
+
+.ds_italic {
+  font-style: italic;
+}

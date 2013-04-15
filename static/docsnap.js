@@ -15,9 +15,33 @@ savedCaretPos = null;
 //vagy egyszerűen használjuk az elküldéskor érvényes tartalmat
 //(false is the way to go)
 
+// "<b>H</b>e&nbsp;<br>l" -->
+// ["<b>", "H", "</b>", "e", "&nbsp;", "<br>", "l"]
+function tokenize(data) {
+  var tokens = new Array();
+  var len = data.length;
+  var idx = 0;
+  var tokenizerRegex = new RegExp("<[^>]+>|&[a-z]+;|<\/[^>]+>", "g");
+  var res = null;
+  while ( (res = tokenizerRegex.exec(data)) ) {
+    //megelozo karakterek 
+    for(var i = idx; i < res.index; ++i) {
+      tokens.push(data[i]);
+    }
+
+    tokens.push(res[0]);
+    
+    idx = res.index + res[0].length;
+  }
+  for(var i = idx; i < len; ++i) {
+    tokens.push(data[i]);
+  }
+  return tokens;
+}
+
 function  synchronizeContent() {
   var sentContent = actualContent();
-  var sentChanges = diffEngine.getShortestEditScript(syncContent, sentContent);
+  var sentChanges = diffEngine.getShortestEditScript(tokenize(syncContent), tokenize(sentContent) );
   //üres listát küldjünk, ha nem változott semmi
   var n=sentChanges.match(/^\[=[0-9]+\]$/);
   if (n == sentChanges) {
@@ -46,10 +70,12 @@ function  synchronizeContent() {
         setTimeout(synchronizeContent, 1000);
         return;
       }
-//      wrapCaretWithSpan();
+      
+      saveSelection();
+      
       var srvVersion = parseInt(revision.substr(1), 10);
       var actContent = actualContent();
-      var cliChanges = diffEngine.getShortestEditScript(syncContent, actContent);
+      var cliChanges = diffEngine.getShortestEditScript(tokenize(syncContent), tokenize(actContent));
       var oldSyncContent = syncContent;
 
 
@@ -85,6 +111,7 @@ function  synchronizeContent() {
           break;
       }
       setTimeout(synchronizeContent, 1000);
+      restoreSelection();
 //      jumpToCaretSpan();
 //      removeCaretSpan();
     },
@@ -97,8 +124,17 @@ function  synchronizeContent() {
   });
 }
 
+
+var italicApplier;
+var boldApplier;
+
 $(document).ready(function() {
+  rangy.init(); //css alkalmazásokhoz
+  boldApplier = rangy.createCssClassApplier("ds_bold");
+  italicApplier = rangy.createCssClassApplier("ds_italic");
+
   $('#sync').click( synchronizeContent );
+  setInterval(showPreview, 200);
 
 //  $('#hello').click( function() {
     //start loading progress bar
@@ -108,7 +144,7 @@ $(document).ready(function() {
       dataType: "html",
       cache   : false,
       data    : {
-          d: "hello"
+        d: "hello"
       },
       success : function(revision) {
         console.log("Kewl, we said hello!");
@@ -132,29 +168,41 @@ $(document).ready(function() {
 //  });
 
     $("#editor").on({
-        //TAB must be handled here because in
-        //Chrome keypress is already too late
-        keydown: function(ev) {
-          var code = ev.keyCode || ev.which;
-          console.log(code);
-          if (code == 9) {
-          //TAB
-            pasteHtmlAtSelection('&nbsp;&nbsp;&nbsp;&nbsp;');
-            ev.preventDefault();
-          }
-        },
-        
-        keypress: function(ev){
-          var code = ev.keyCode || ev.which;
-          console.log(code);
-          //ENTER
-          if (code == 13) {
-            pasteHtmlAtSelection('<br>');
-            ev.preventDefault();
-          }
+      //TAB must be handled here because keypress in
+      //Chrome is already too late
+      keydown: function(ev) {
+        var code = ev.keyCode || ev.which;
+        console.log(code);
+        if (code == 9) {
+        //TAB
+          pasteHtmlAtSelection('&nbsp;&nbsp;&nbsp;&nbsp;');
+          ev.preventDefault();
         }
+      },
+      
+      keypress: function(ev){
+        var code = ev.keyCode || ev.which;
+        console.log(code);
+        //ENTER
+        if (code == 13) {
+          pasteHtmlAtSelection('<br>');
+          ev.preventDefault();
+        }
+      }
+    });
+    
+    $("#bold").mousedown(function(e) {
+      boldApplier.toggleSelection();
+      e.preventDefault();
+    });
+    
+    $("#italic").mousedown(function(e) {
+      italicApplier.toggleSelection();
+      e.preventDefault();
     });
 });
+
+
 
 function showPreview() {
   $('#preview').text( actualContent() );
