@@ -111,8 +111,8 @@ handleSayHello = method POST getter
       with sessionLens commitSession
       --visszakuldjuk neki az osszes reviziot
       revs <- getRevisions
-      liftIO $ putStrLn $ show revs
-      liftIO $ putStrLn $ serialize (concatRevisions revs)
+      --liftIO $ putStrLn $ show revs
+      --liftIO $ putStrLn $ serialize (concatRevisions revs)
       writeBS $ strToBs $ serialize (concatRevisions revs)
       liftIO $ putStrLn "*END SAYING HELLO"
 

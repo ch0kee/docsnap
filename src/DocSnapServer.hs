@@ -27,15 +27,6 @@ import qualified Data.ByteString.Lazy as BL
 import Serialize (parseRevision, parseEditScript)
 
 
-{-
-data DocSnapServer = DocSnapServer {
-  dss_baseContent :: B.ByteString,
-  dss_syncObject :: EditScript,
-  dss_nextUpdate :: Map Contributor EditScript,
-  dss_revisions :: [Revision]
-}
--}
-
 
 data RevisionControl = RevisionControl {
   rc_revisions :: MVar [Revision]
@@ -57,13 +48,6 @@ getRevisions = do
   let revMVar = rc_revisions revctrl
   liftIO $ readMVar revMVar
 
-{-
-editJSONtoEdit :: EditJSON -> [Edit]
-editJSONtoEdit (EditJSON { edit_type=t, edit_value=v })
-  | t == "+" = map Add v
-  | t == "-" = replicate (length v) Remove
-  | t == "=" = replicate (length v) Equal
--}
 
 
 --egymas utan kovetkezo reviziok osszefuzese egybe
@@ -84,25 +68,10 @@ concatRevisions (Revision (es1,v1): Revision (es2,v2):rest) = concatRevisions (R
     concatES l@(Insert _:ls) (Insert c:rs) = (Insert c:concatES l rs)
     concatES [] r = r
 
-{-
-fold zipWith merge (splitCharRev r1) (splitCharRev r2)
-  where
-    merge ((c,'-'):rest)              cr2        = (c,'-'): merge rest cr2
-    merge ((c1,'+'):rest1)  cr2@((c2,'+'):rest2) = (c1,'+'): merge rest1 cr2
-    merge cr1               ((c,'+'):rest2)      = (c,'+'): merge cr1 rest2
-    merge ((c,'+'):rest1)   ((_,'='):rest2)      = (c,'+'): merge rest1 rest2
-    merge ((c,'+'):rest1)   ((_,'-'):rest2)      = merge rest1 rest2
-    merge ((c,'='):rest1)        (c2:rest2)      = c2: merge rest1 rest2
--}
-
---if commit revision equals latest revision
-----append commit revision to history
-----send back new version
---else
-----interrupt commit
-----send back Revision ([intermediate revisions], latest version)
 
 --a verziók növekvő sorrendben vannak!!!
+
+
 
 latestVersion :: [Revision] -> Version
 latestVersion [] = 0
@@ -128,11 +97,11 @@ commit cdata = do
       rc <- getRevisionControlState
       let revMVar = rc_revisions rc
       revs <- liftIO $ takeMVar revMVar -- [Revision]
-      liftIO $ putStrLn $ "%%% clientRev: " ++ (show rev)
-      liftIO $ putStrLn $ "%%% oldRevs: " ++ (show revs)
+      --liftIO $ putStrLn $ "%%% clientRev: " ++ (show rev)
+      --liftIO $ putStrLn $ "%%% oldRevs: " ++ (show revs)
       let new_rs = commit' rev revs
       liftIO $ putMVar revMVar (fst new_rs)
-      liftIO $ putStrLn $ "%%% newRevs: " ++ (show $ fst new_rs)
+      --liftIO $ putStrLn $ "%%% newRevs: " ++ (show $ fst new_rs)
       return $ snd new_rs
         where
           commit' :: Revision -> [Revision] -> ([Revision], Response)
@@ -147,7 +116,22 @@ commit cdata = do
                 where
                   r' = Revision (es, v')
                   v' = v+1
+{-
+packEdits :: [Edit] -> [PackedEdit]
+packEdits edits = reverse $ foldl add' [] edits
+  where
+    add' :: [PackedEdit] -> Edit -> [PackedEdit]
+    add' (p:ps) e = add p e: add' ps e
+    add' [] e =
 
+    add :: [PackedEdit] -> Edit -> [PackedEdit]
+    add (Inserts s) (Insert c) = Inserts (s ++ show c)
+    add (Preserves n) Preserve = Preserves(n+1)
+    add (Removes n) Remove = Removes (n+1)
+    add _ (Insert c) = Inserts $ show c
+    add _ Preserve = Preserves 1
+    add _ Remove = Removes 1
 
-
-
+packRevision :: Revision -> PackedRevision
+packRevision (Revision (es, version)) = PackedRevision (packEdits es, version)
+-}

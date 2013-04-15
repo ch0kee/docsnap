@@ -24,13 +24,13 @@ function tokenize(data) {
   var tokenizerRegex = new RegExp("<[^>]+>|&[a-z]+;|<\/[^>]+>", "g");
   var res = null;
   while ( (res = tokenizerRegex.exec(data)) ) {
-    //megelozo karakterek 
+    //megelozo karakterek
     for(var i = idx; i < res.index; ++i) {
       tokens.push(data[i]);
     }
 
     tokens.push(res[0]);
-    
+
     idx = res.index + res[0].length;
   }
   for(var i = idx; i < len; ++i) {
@@ -70,12 +70,12 @@ function  synchronizeContent() {
         setTimeout(synchronizeContent, 1000);
         return;
       }
-      
+
       saveSelection();
-      
+
       var srvVersion = parseInt(revision.substr(1), 10);
       var actContent = actualContent();
-      var cliChanges = diffEngine.getShortestEditScript(tokenize(syncContent), tokenize(actContent));
+      var cliChanges = diffEngine.getShortestEditScript(tokenize(syncContent), tokenize(actualContent()));
       var oldSyncContent = syncContent;
 
 
@@ -110,8 +110,8 @@ function  synchronizeContent() {
           //error
           break;
       }
-      setTimeout(synchronizeContent, 1000);
       restoreSelection();
+      setTimeout(synchronizeContent, 1000);
 //      jumpToCaretSpan();
 //      removeCaretSpan();
     },
@@ -128,12 +128,53 @@ function  synchronizeContent() {
 var italicApplier;
 var boldApplier;
 
+var layout;
+
 $(document).ready(function() {
+  layout = $('body').layout({
+
+		//	reference only - these options are NOT required because 'true' is the default
+			closable:					true	// pane can open & close
+		,	resizable:					true	// when open, pane can be resized
+		,	slidable:					true	// when closed, pane can 'slide' open over other panes - closes on mouse-out
+		,	livePaneResizing:			true
+
+		//	some resizing/toggling settings
+		,	north__slidable:			false	// OVERRIDE the pane-default of 'slidable=true'
+		,	north__togglerLength_closed: '100%'	// toggle-button is full-width of resizer-bar
+		,	north__spacing_closed:		20		// big resizer-bar when open (zero height)
+		,	south__resizable:			false	// OVERRIDE the pane-default of 'resizable=true'
+		,	south__spacing_open:		0		// no resizer-bar when open (zero height)
+		,	south__spacing_closed:		20		// big resizer-bar when open (zero height)
+
+		//	some pane-size settings
+		,	west__minSize:				100
+		,	east__size:					300
+		,	east__minSize:				200
+		,	east__maxSize:				.5 // 50% of layout width
+		,	center__minWidth:			100
+
+		//	some pane animation settings
+		,	west__animatePaneSizing:	false
+		,	west__fxSpeed_size:			"fast"	// 'fast' animation when resizing west-pane
+		,	west__fxSpeed_open:			1000	// 1-second animation when opening west-pane
+		,	west__fxSettings_open:		{ easing: "easeOutBounce" } // 'bounce' effect when opening
+		,	west__fxName_close:			"none"	// NO animation when closing west-pane
+
+		//	enable showOverflow on west-pane so CSS popups will overlap north pane
+		,	west__showOverflowOnHover:	true
+
+		//	enable state management
+		,	stateManagement__enabled:	true // automatic cookie load & save enabled by default
+
+		,	showDebugMessages:			true // log and/or display messages from debugging & testing code
+  });
+  $( "#tabs" ).tabs();
+
   rangy.init(); //css alkalmazásokhoz
   boldApplier = rangy.createCssClassApplier("ds_bold");
   italicApplier = rangy.createCssClassApplier("ds_italic");
 
-  $('#sync').click( synchronizeContent );
   setInterval(showPreview, 200);
 
 //  $('#hello').click( function() {
@@ -179,7 +220,7 @@ $(document).ready(function() {
           ev.preventDefault();
         }
       },
-      
+
       keypress: function(ev){
         var code = ev.keyCode || ev.which;
         console.log(code);
@@ -188,20 +229,28 @@ $(document).ready(function() {
           pasteHtmlAtSelection('<br>');
           ev.preventDefault();
         }
+      },
+
+      input: function() {
+        setModified(true);
       }
     });
-    
+
     $("#bold").mousedown(function(e) {
       boldApplier.toggleSelection();
       e.preventDefault();
     });
-    
+
     $("#italic").mousedown(function(e) {
       italicApplier.toggleSelection();
       e.preventDefault();
     });
 });
 
+modified=false;
+function setModified(modified) {
+  modified = modified;
+}
 
 
 function showPreview() {

@@ -1,7 +1,5 @@
 .editorinput {
     border: 1px solid #006;
-    width: 200px;
-    height: 100px;
     word-wrap: break-word;
 }
 
@@ -12,3 +10,4 @@
 .ds_italic {
   font-style: italic;
 }
+
