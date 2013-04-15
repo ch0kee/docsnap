@@ -1,4 +1,5 @@
-<html>
+<!DOCTYPE html>
+<html>file:///home/ch0kee/workspace/DocSnap/static/jquerytest.html
   <head>
     <title>DocSnap Multi-User Document Editor</title>
     <link rel="stylesheet" type="text/css" href="screen.css"/>
@@ -7,17 +8,14 @@
     <script src="diff.js"> </script>
     <script src="jquery-1.9.1.js"></script>
     <script src="jquerypp/jquerypp.js"> </script>
-
+    <script src="rangy-1.2.3/rangy-core.js"> </script>
     <script type="text/javascript">
 
-/*
-
-Q1 3
-Q2 3
-Q3 3
-Q4
-
-*/
+//http://rangy.googlecode.com/svn/trunk/demos/core.html
+function getFirstRange() {
+  var sel = rangy.getSelection();
+  return sel.rangeCount ? sel.getRangeAt(0) : null;
+}
 
 function pasteHtmlAtCaret(html) {
     var sel, range;
@@ -55,71 +53,9 @@ function pasteHtmlAtCaret(html) {
 
 $(document).ready(function() {
     setInterval(function() {
-        $('#preview').text( $('#editor').html());
-        }, 2000);
+        $('#preview').text( $('#editor').text());
+        }, 200);
 
-    var sel = new Object();
-
-
-
-    function wrapCaretWithSpan() {
-        var sel = window.getSelection();
-        if (sel.rangeCount <= 0)
-            return;
-        removeCaretSpan();
-        var range = sel.getRangeAt(0);
-        var span = document.createElement("span");
-        span.setAttribute("id", "caretspan");
-        range.surroundContents(span);
-        sel.selectAllChildren(span);
-        //sel.removeAllRanges();
-        //sel.addRange(range);
-    }
-
-    function jumpToCaretSpan() {
-        $('#editor').focus();
-        var sel = window.getSelection();
-        var span = document.getElementById("caretspan");
-        if (span) {
-            sel.selectAllChildren(span);
-        }
-    }
-
-    function    removeCaretSpan() {
-        if ($('#caretspan').length > 0) {
-            if ($('#caretspan').contents().length > 0) {
-                $('#caretspan').contents().unwrap();
-            } else {
-                $('#caretspan').remove();
-            }
-        }
-    }
-
-    //változtatások alkalmazása
-    function getWithChangesApplied(str, changes) {
-        var strArray = new Array();
-        //index szerint rendezve
-        changes.sort( function(c1, c2) {
-            return c1.idx-c2.idx
-        });
-
-        var newStr = str.slice(0);
-        var strIndex = 0;
-        var oldIndex = 0;
-        for(var i = 0; i < changes.length; ++i) {
-            if (changes.typ == "+") {
-            //insert
-                changes.idx
-            } else if (changes.typ == "-") {
-            //remove
-                //
-            }
-        }
-
-        return str;
-    }
-
-    var savedContent = "";
     $("#test1btn").text('save content');
     $("#test1btn").mousedown(function(e) {
         e.preventDefault();
@@ -149,49 +85,48 @@ $(document).ready(function() {
         var applied = JsDiff.applyCharChanges1(oldContent, changes);
         $('#diffview').html(applied);
     });
-    $("#saveselectionbtn").mousedown(function(e) {
-        e.preventDefault();
-        //sel = $('#editor').selection();
-
-        wrapCaretWithSpan();
-        //$('#editor').focus();
-    });
-
-    $("#restoreselectionbtn").mousedown(function(e) {
-        e.preventDefault();
-        //$('#editor').selection(sel.start, sel.end);
-        //$('#editor').focus();
-        jumpToCaretSpan();
-    });
 
     $("#editor").on({
         keypress: function(ev){
-
             var code = ev.keyCode || ev.which;
-            /*
-            console.log(ev.keyName());
-            if(ev.keyName() == '\b') {
-                ev.preventDefault();
-            } else if (ev.keyName() == 'delete') {
-                ev.preventDefault();
-            } else
-            */
+            console.log(code);
+
+            //ENTER
             if (code == 13) {
-                //console.log('enter pressed');
-                pasteHtmlAtCaret('<br>');
-                ev.preventDefault();
+//                pasteHtmlAtCaret('<br>');
+              var range = getFirstRange();
+              if (range) {
+                var el = document.createElement('br');
+                range.insertNode(el);
+                //move selection after insertion
+                range.setStartAfter(el);
+                range.collapse(true);
+                rangy.getSelection().setSingleRange(range);
+                //rangy.getSelection().collapseToEnd();
+              }
+              ev.preventDefault();
+//                ev.preventDefault();
+            } else if (code == 9) {
+            //TAB
+              var range = getFirstRange();
+              if (range) {
+                var el = document.createElement("div");
+                el.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;";
+                var frag = document.createDocumentFragment(), node, lastNode;
+                while ( (node = el.firstChild) ) {
+                    lastNode = frag.appendChild(node);
+                }
+                range.insertNode(frag);
+
+                if (lastNode) {
+                  range.setStartAfter(lastNode);
+                  range.collapse(true);
+                  rangy.getSelection().setSingleRange(range);
+                }
+              }
+              ev.preventDefault();
             }
-            //console.log('keypress');
         },
-/*
-        input: function() {
-            console.log('input');
-            var sel = $('#editor').selection();
-            $('#start').text(sel.start);
-            $('#end').text(sel.end);
-            $('#width').text(sel.width);
-        }
-*/
         input: function() {
             //console.log('input');
             var newContent = $("#editor").html();
@@ -237,106 +172,7 @@ $(document).ready(function() {
   }
 
 
-  function filterEditorText() {
-    var html = $("#editor").html();
-
-
-    /*
-    var v = $("#editor").text();
-    //csak ezek a karakterek maradhatnak
-    var patt = /([^a-z0-9\s;&\+=-])/gi;
-    var vn = v.replace(patt,"");
-    $("#editor").text( vn );
-    return vn;*/
-  }
-  /*
-    $('#editor').bind('paste', function () {
-       // clipData
-    });*/
-
-  //on changed
-
-  /*
-  $("#editor").keypress(function(event) {
-    if ( event.which == 13 ) {
-      event.preventDefault();
-    }
-    xTriggered++;
-    var msg = "Handler for .keypress() called " + xTriggered + " time(s).";
-    $.print( msg, "html" );
-    $.print( event );
-  });
-
-  function embedIntoSpan() {
-  var xTriggered = 0;
-
-    //a kurzort betesszük egy spanba
-  }*/
-
-  //input handlers
-  /* insert/change attól függően, hogy volt-e kijelölés
-  - onpaste
-  - onkeydown ? onkeypress ?
-  - ondrop
-  - oncut (remove)
-  - ondrag (remove)
-  - onselect kellhet
-  */
-    function    insertText() {
-        editor = document.getElementById('editor');
-        var rangeObj = document.createRange ();
-        rangeObj.setStart (editor, 0);
-        rangeObj.setEnd (editor, 0);
-        var textNode = document.createTextNode ("alma");
-        rangeObj.insertNode(textNode);
-    }
-/*
-    $("#editor").bind('paste', function (event) {
-
-
-        var range2 = document.getSelection().getRangeAt(0);
-        var spanNode = document.createElement("p");
-        range2.surroundContents(spanNode);
-        insertText();
-    });
-
-
-    setInterval(function() {
-
-        var cp = caretPosition();
-        //$('#editor').text('\ud83d\udd13');
-        $("#caretchildindex").text( cp.index );
-        $("#caretoffset").text( cp.offset );
-        $("#editor2").text( $("#editor").html() );
-    }, 3000);
-*/
-  //ajax heartbeat
-  if (enableAJAXheartbeat)
-  setInterval(function() {
-      var syncobj = new Object();
-      syncobj.content = $("#editor").text();
-
-      $.ajax({
-          url     : "/cupdate",
-          type    : "POST",
-          dataType: "json",
-          cache   : false,
-          data    : {
-              d: JSON.stringify(syncobj)
-          },
-          success : function(json) {
-
-          },
-          error : function( xhr, status ) {
-              //alert("Sorry, there was a problem!");
-          },
-          // code to run regardless of success or failure
-          complete : function( xhr, status ) {
-              //alert("The request is complete!");
-          }
-      });
-  }, 5000);
- });
+});
 </script>
   </head>
   <body>
@@ -356,9 +192,6 @@ $(document).ready(function() {
         </td>
         <td>
     <div id="preview" class="editorinput"> </div>
-        </td>
-                <td>
-    <div id="diffview" class="editorinput"> </div>
         </td>
     </tr>
 </table>

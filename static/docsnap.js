@@ -1,5 +1,3 @@
-goog.require('goog.asserts');
-goog.require('goog.debug.Logger');
 
 
 function wrapCaretWithSpan() {
@@ -53,6 +51,7 @@ diffEngine = new DiffEngine();
 syncContent = "";
 currentRevision = 0; //0. revision is the empty content
 applyCommittedChanges = true; //alkalmazzuk-e a módosításokat külön,
+savedCaretPos = null;
 //vagy egyszerűen használjuk az elküldéskor érvényes tartalmat
 //(false is the way to go)
 
@@ -84,9 +83,9 @@ function  synchronizeContent() {
         if (revision.length != 1) {
           //error
         }
+        setTimeout(synchronizeContent, 1000);
         return;
       }
-
 //      wrapCaretWithSpan();
       var srvVersion = parseInt(revision.substr(1), 10);
       var actContent = actualContent();
@@ -125,6 +124,7 @@ function  synchronizeContent() {
           //error
           break;
       }
+      setTimeout(synchronizeContent, 1000);
 //      jumpToCaretSpan();
 //      removeCaretSpan();
     },
@@ -160,7 +160,7 @@ $(document).ready(function() {
         currentRevision = srvVersion;
         actualContent(syncContent);
 
-        setInterval(synchronizeContent, 1000);
+        setTimeout(synchronizeContent, 1000);
       },
       error : function( xhr, status ) {
         console.log("Sorry, there was a problem!");

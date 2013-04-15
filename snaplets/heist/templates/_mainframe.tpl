@@ -2,6 +2,8 @@
 <h1>DocSnap Eszköztár</h1>
 <table>
   <tr>
+    <td> <button id="bold">BOLD</button> </td>
+    <td> <button id="italic">ITALIC</button> </td>
     <td> <button id="hello">HELLO</button> </td>
     <td> <button id="sync">SYNC</button> </td>
   </tr>
