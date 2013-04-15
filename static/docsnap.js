@@ -1,44 +1,4 @@
 
-
-function wrapCaretWithSpan() {
-  var sel = window.getSelection();
-  if (!sel || sel.rangeCount <= 0) {
-    console.log('no selection');
-    return;
-  }
-  removeCaretSpan();
-  var range = sel.getRangeAt(0);
-  var span = document.createElement("span");
-  span.setAttribute("id", "caretspan");
-  range.surroundContents(span);
-  sel.selectAllChildren(span);
-  //sel.removeAllRanges();
-  //sel.addRange(range);
-}
-
-function jumpToCaretSpan() {
-  $('#editor').focus();
-  var sel = window.getSelection();
-  if (!sel) {
-    console.log('no selection');
-    return;
-  }
-  var span = document.getElementById("caretspan");
-  if (span) {
-    sel.selectAllChildren(span);
-  }
-}
-
-function    removeCaretSpan() {
-  if ($('#caretspan').length > 0) {
-    if ($('#caretspan').contents().length > 0) {
-      $('#caretspan').contents().unwrap();
-    } else {
-      $('#caretspan').remove();
-    }
-  }
-}
-
 function  actualContent(newContent) {
   if (actualContent.arguments.length == 0)
     return $('#editor').html();
@@ -170,6 +130,30 @@ $(document).ready(function() {
       }
     });
 //  });
+
+    $("#editor").on({
+        //TAB must be handled here because in
+        //Chrome keypress is already too late
+        keydown: function(ev) {
+          var code = ev.keyCode || ev.which;
+          console.log(code);
+          if (code == 9) {
+          //TAB
+            pasteHtmlAtSelection('&nbsp;&nbsp;&nbsp;&nbsp;');
+            ev.preventDefault();
+          }
+        },
+        
+        keypress: function(ev){
+          var code = ev.keyCode || ev.which;
+          console.log(code);
+          //ENTER
+          if (code == 13) {
+            pasteHtmlAtSelection('<br>');
+            ev.preventDefault();
+          }
+        }
+    });
 });
 
 function showPreview() {
