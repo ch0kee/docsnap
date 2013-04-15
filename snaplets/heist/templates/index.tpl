@@ -116,7 +116,7 @@
     <script src="/diff.js"> </script>
     <script src="/docsnap.js"> </script>
   </head>
-  <body>
+  <body spellcheck="false">
     <div class="ui-layout-north" onmouseover="layout.allowOverflow('north')" onmouseout="layout.resetOverflow(this)">
       <h1>[DocSnap Fejléc]</h1>
       <h1>XDocSnap Eszköztár</h1>
@@ -132,13 +132,9 @@
       <div id="tabs">
         <ul>
           <li><a href="#editorTab">Editor</a></li>
-          <li><a href="#htmlTab">HTML (read-only)</a></li>
         </ul>
         <div id="editorTab">
             <div id="editor" class="editorinput ui-layout-content ui-widget-content" contenteditable="true"></div>
-        </div>
-        <div id="htmlTab">
-            <div id="preview" class="editorinput ui-layout-content ui-widget-content" contenteditable="false"></div>
         </div>
       </div>
     </div>

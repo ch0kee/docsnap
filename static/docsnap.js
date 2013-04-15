@@ -12,6 +12,7 @@ syncContent = "";
 currentRevision = 0; //0. revision is the empty content
 applyCommittedChanges = true; //alkalmazzuk-e a módosításokat külön,
 savedCaretPos = null;
+syncInterval = 400;
 //vagy egyszerűen használjuk az elküldéskor érvényes tartalmat
 //(false is the way to go)
 
@@ -67,7 +68,7 @@ function  synchronizeContent() {
         if (revision.length != 1) {
           //error
         }
-        setTimeout(synchronizeContent, 1000);
+        setTimeout(synchronizeContent, syncInterval);
         return;
       }
 
@@ -111,7 +112,7 @@ function  synchronizeContent() {
           break;
       }
       restoreSelection();
-      setTimeout(synchronizeContent, 1000);
+      setTimeout(synchronizeContent, syncInterval);
 //      jumpToCaretSpan();
 //      removeCaretSpan();
     },
@@ -197,7 +198,7 @@ $(document).ready(function() {
         currentRevision = srvVersion;
         actualContent(syncContent);
 
-        setTimeout(synchronizeContent, 1000);
+        setTimeout(synchronizeContent, syncInterval);
       },
       error : function( xhr, status ) {
         console.log("Sorry, there was a problem!");

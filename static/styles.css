@@ -1,6 +1,7 @@
 .editorinput {
-    border: 1px solid #006;
-    word-wrap: break-word;
+  border: 1px solid #006;
+  height: 80%;
+  word-wrap: break-word;
 }
 
 .ds_bold {
