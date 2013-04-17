@@ -170,7 +170,6 @@ $(document).ready(function() {
 
 		,	showDebugMessages:			true // log and/or display messages from debugging & testing code
   });
-  $( "#tabs" ).tabs();
 
   rangy.init(); //css alkalmazásokhoz
   boldApplier = rangy.createCssClassApplier("ds_bold");
