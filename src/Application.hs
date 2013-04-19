@@ -21,9 +21,6 @@ import DocSnapServer
 data App = App
     { _heist :: Snaplet (Heist App)
     , _sessionLens :: Snaplet SessionManager
-    , _auth :: Snaplet (AuthManager App)
---    , _dss  :: Snaplet DocSnapServer
---    , _dss :: IORef DocSnapServer
     , _revLens :: Snaplet (RevisionControl)
     }
 

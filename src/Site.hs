@@ -150,17 +150,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     h <- nestSnaplet "" heist $ heistInit "templates"
     s <- nestSnaplet "sess" sessionLens $
            initCookieSessionManager "site_key.txt" "sess" (Just 3600)
-
-    -- NOTE: We're using initJsonFileAuthManager here because it's easy and
-    -- doesn't require any kind of database server to run.  In practice,
-    -- you'll probably want to change this to a more robust auth backend.
-    a <- nestSnaplet "auth" auth $
-           initJsonFileAuthManager defAuthSettings sessionLens "users.json"
     rc <- nestSnaplet "revctrl" revLens $ revisionControlInit
-    --d <- nestSnaplet "dss" dss $ dssInit
     addRoutes routes
-    addAuthSplices auth
-    --cref <- liftIO $ newIORef dss_init --kezdetben ures
-    --addSplices $ map (second liftHeist) [("fact",factSplice)]
-    return $ App h s a rc
+    return $ App h s rc
 
