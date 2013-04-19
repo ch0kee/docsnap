@@ -21,7 +21,8 @@ import DocSnapServer
 data App = App
     { _heist :: Snaplet (Heist App)
     , _sessionLens :: Snaplet SessionManager
-    , _revLens :: Snaplet (RevisionControl)
+    --, _revLens :: Snaplet (RevisionControl)
+    , _docHostLens :: Snaplet DocumentHost
     }
 
 makeLenses ''App
@@ -29,8 +30,12 @@ makeLenses ''App
 instance HasHeist App where
     heistLens = subSnaplet heist
 
-instance HasRevisionControl (Handler App App) where
-  getRevisionControlState = with revLens get
+instance HasDocumentHost (Handler App App) where
+  getDocumentHost = with docHostLens get
+
+
+--instance HasRevisionControl (Handler App App) where
+--  getRevisionControlState = with revLens get
 
 ------------------------------------------------------------------------------
 type AppHandler = Handler App App

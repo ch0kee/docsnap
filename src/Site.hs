@@ -33,7 +33,7 @@ import           Heist
 import qualified Heist.Interpreted as I
 import           Data.Lens.Lazy
 import Control.Comonad.Trans.Store
-import Control.Lens
+--import Control.Lens
 import          Control.Monad.State
 ------------------------------------------------------------------------------
 import           Application
@@ -64,6 +64,20 @@ logDSS = liftIO . putStrLn
 
 -- $(deriveJSON id ''Insert)
 -- $(deriveJSON id ''Remove)
+
+--todo: handle permissions
+handleOpenDocument :: Handler App App ()
+handleOpenDocument = render "test"--writeBS "nothing yet"
+{-
+handleOpenDocument = do
+  id <- getParam "id"
+  maybe_access <- tryAccessDocument id
+  case maybe_access of
+    Nothing -> writeBS "did not find any doc :("
+    Just access -> open access
+    where
+      open (_, doc) = 
+-}
 
 -- Lekezeljuk az uj adatot
 handleContentUpdate :: Handler App App ()
@@ -100,15 +114,30 @@ handleContentUpdate = method POST getter
 
       logDSS "<< END HANDLE COMMIT"
 
---csak azt kuldjuk vissza, amit a tobbiek csinaltak
+
+handleNew :: Handler App App ()
+handleNew = method POST getter
+  where
+    getter = do
+      return ()
+
+
+handleShare :: Handler App App ()
+handleShare = method POST getter
+  where
+    getter = do
+      return ()
 
 handleSayHello :: Handler App App ()
 handleSayHello = method POST getter
   where
     getter = do
       liftIO $ putStrLn "*START SAYING HELLO"
-      with sessionLens $ setInSession "contributor" "0"
+      withSession sessionLens $
+        with sessionLens $ setInSession "contributor" "0"
       with sessionLens commitSession
+      --doc <- createNewDocument
+      --testdoc <- getTestDocument
       --visszakuldjuk neki az osszes reviziot
       revs <- getRevisions
       --liftIO $ putStrLn $ show revs
@@ -134,23 +163,31 @@ bsToStr =  T.unpack . E.decodeUtf8
 strToBs :: String -> ByteString
 strToBs =  E.encodeUtf8 . T.pack
 
+
+
 ------------------------------------------------------------------------------
 -- | The application's routes.
+--todo: gyökérben menjen az opendocument
 routes :: [(ByteString, Handler App App ())]
-routes = [ ("chello",   handleSayHello)
-         , ("cupdate",  handleContentUpdate)
-         , ("",          serveDirectory "static")
+routes = [ ("/chello",   handleSayHello)
+         , ("/cupdate",  handleContentUpdate)
+         , ("/cnew", handleNew)
+         , ("/cshare", handleShare)
+         --, ("", ifTop $ serveDirectory "static")
+         , ("/d/:id", handleOpenDocument)
+         , ("",  serveDirectory "static")
+         , ("", with heist heistServe)
          ]
-
 
 ------------------------------------------------------------------------------
 -- | The application initializer.
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
-    h <- nestSnaplet "" heist $ heistInit "templates"
-    s <- nestSnaplet "sess" sessionLens $
-           initCookieSessionManager "site_key.txt" "sess" (Just 3600)
-    rc <- nestSnaplet "revctrl" revLens $ revisionControlInit
-    addRoutes routes
-    return $ App h s rc
+  h <- nestSnaplet "heist" heist $ heistInit "templates"
+  s <- nestSnaplet "sess" sessionLens $
+         initCookieSessionManager "site_key.txt" "sess" (Just 3600)
+  --rc <- nestSnaplet "revctrl" revLens $ revisionControlInit
+  dh <- nestSnaplet "dochost" docHostLens $ documentHostInit
+  addRoutes routes
+  return $ App h s dh
 

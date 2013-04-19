@@ -6,31 +6,80 @@
 module DocSnapServer where
 
 import Internal.Types
-
 import    Snap.Snaplet
 import qualified Data.ByteString as B
 import    Data.IORef
 import    Data.Map (Map)
 import qualified Data.Map as M
-
 import Data.Aeson.TH
 import qualified Data.Aeson as A
-
-
 import Control.Concurrent.MVar
 import  Control.Monad.Trans
-
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
-
 import Serialize (parseRevision, parseEditScript)
 
+--todo: we use parametrized types to lift side effects into user code
+--by using 'a' instead of 'MVar'
+data DocumentHost = DocumentHost {
+  documents :: MVar (M.Map DocID Document)
+, documentAccesses :: MVar (M.Map Accessor DocumentAccess)
+}
+--newtype DocumentAccess = Reader | Author
+data DocumentAccess = DocumentAccess {
+  permission :: Permission
+, docid :: DocID
+}
+type DocID = Integer
+type Accessor = String
+data Permission = Author | Reader
+type RevisionHistory = [Revision]
+newtype Document = Document { revisionHistory :: RevisionHistory }
+class (MonadIO m) => HasDocumentHost m
+  where
+    getDocumentHost :: m (DocumentHost)
+
+documentHostInit :: SnapletInit b DocumentHost
+documentHostInit = makeSnaplet "dochost" "DocumentHost Snaplet" Nothing $ do
+  docs <- liftIO $ newMVar (M.singleton 42 (Document []))
+  das <- liftIO $ newMVar (M.singleton "42" (DocumentAccess { permission = Author, docid = 42 }))
+  return DocumentHost { documents = docs, documentAccesses = das }
+
+--todo: use newtype instead of type if possible
+--todo: more informal error cause
+--todo: returned value MUST not allow use inproper permissions
+--todo: even if the code is wrong
+tryAccessDocument :: HasDocumentHost m => Accessor -> m (Maybe (Permission,Document))
+tryAccessDocument id = do
+  dh <- getDocumentHost
+  das <- liftIO $ readMVar (documentAccesses dh)
+  docs <- liftIO $ readMVar (documents dh)
+  case M.lookup id das of
+    Nothing  -> return Nothing
+    Just acc -> case M.lookup (docid acc) docs of
+      Nothing -> return Nothing
+      Just doc -> return $ Just (permission acc, doc)
 
 
 data RevisionControl = RevisionControl {
   rc_revisions :: MVar [Revision]
 }
+
+getTestDocument :: HasDocumentHost m => m (Document)
+getTestDocument = do
+  dh <- getDocumentHost
+  docs <- liftIO $ readMVar (documents dh)
+  case M.lookup 42 docs of
+    Nothing -> error "NOT FOUND 42"
+    Just d -> return d
+
+--createNewDocument :: HasDocumentHost m -> m (Document)
+--createNewDocument = do
+--  docHost <- getDocumentHost
+--  liftIO $ newMVar ()
+--  M.insert 0 (
+  
 
 revisionControlInit :: SnapletInit b RevisionControl
 revisionControlInit = makeSnaplet "revctrl" "Revision Control snaplet" Nothing $ do
@@ -41,13 +90,18 @@ class (MonadIO m) => HasRevisionControl m
   where
     getRevisionControlState :: m (RevisionControl)
 
+--TESZT KÓD
 --reviziok adott indextol
-getRevisions :: HasRevisionControl m => m [Revision]
+getRevisions :: HasDocumentHost m => m [Revision]
 getRevisions = do
-  revctrl <- getRevisionControlState
-  let revMVar = rc_revisions revctrl
-  liftIO $ readMVar revMVar
+  testdoc <- getTestDocument
+  return $ revisionHistory testdoc
 
+setRevisions revs = do
+  dh <- getDocumentHost
+  docs <- liftIO $ takeMVar (documents dh)
+  let newMap = M.insertWith (\new old -> new) 42 (Document revs) docs
+  liftIO $ putMVar (documents dh) newMap
 
 
 --egymas utan kovetkezo reviziok osszefuzese egybe
@@ -88,19 +142,20 @@ after v rs = dropWhile (\r -> (snd $ un_revision r) <= v) rs
 
 
 -- rak [+2:ab|=3] abrak
-commit :: HasRevisionControl m => String -> m Response
+commit :: HasDocumentHost m => String -> m Response
 commit cdata = do
   liftIO $ putStrLn $ ("%%% commit " ++ cdata)
   case (parseRevision cdata) of
     Left msg  -> undefined --error msg
     Right rev -> do
-      rc <- getRevisionControlState
-      let revMVar = rc_revisions rc
-      revs <- liftIO $ takeMVar revMVar -- [Revision]
+      revs <- getRevisions
+      --let revMVar = rc_revisions rc
+      --revs <- liftIO $ takeMVar revMVar -- [Revision]
       --liftIO $ putStrLn $ "%%% clientRev: " ++ (show rev)
       --liftIO $ putStrLn $ "%%% oldRevs: " ++ (show revs)
       let new_rs = commit' rev revs
-      liftIO $ putMVar revMVar (fst new_rs)
+      setRevisions (fst new_rs)
+--      liftIO $ putMVar revMVar (fst new_rs)
       --liftIO $ putStrLn $ "%%% newRevs: " ++ (show $ fst new_rs)
       return $ snd new_rs
         where
