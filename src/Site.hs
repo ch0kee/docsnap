@@ -50,7 +50,7 @@ import Snap.Snaplet.Session
 
 import Serialize
 import Internal.Types
-
+import Snap.Extras.SpliceUtils
 
 -- tartalom kibontasa
 fromMaybeContent :: Maybe ByteString -> ByteString
@@ -65,19 +65,6 @@ logDSS = liftIO . putStrLn
 -- $(deriveJSON id ''Insert)
 -- $(deriveJSON id ''Remove)
 
---todo: handle permissions
-handleOpen :: Handler App App ()
-handleOpen = render "test"--writeBS "nothing yet"
-{-
-handleOpenDocument = do
-  id <- getParam "id"
-  maybe_access <- tryAccessDocument id
-  case maybe_access of
-    Nothing -> writeBS "did not find any doc :("
-    Just access -> open access
-    where
-      open (_, doc) = 
--}
 
 -- Lekezeljuk az uj adatot
 handleContentUpdate :: Handler App App ()
@@ -110,20 +97,35 @@ handleContentUpdate = method POST getter
         NoChanges -> do
           writeBS $ strToBs $ "n"
           logDSS ("NO CHANGES")
-
-
       logDSS "<< END HANDLE COMMIT"
 
 
+--todo: handle permissions
+handleOpen :: Handler App App ()
+handleOpen = render "test"--writeBS "nothing yet"
+{-
+handleOpen = do
+  docId <- getParam "id"
+  maybe notfound open $ tryAccessDocument docId
+  maybe_access <- tryAccessDocument docId
+    where
+      notfound = writeBS "did not find any doc :(" 
+      open access = do
+        renderWithSplices "main" [("newdialog", return ())]
+                
+
+
+
+-}
 handleNew :: Handler App App ()
-handleNew = method GET getter
-  where
-    getter = do
-      logDSS "creating new document"
-      redirect' "/d/42" 303
-      --writeBS "creating new document"
-      --id <- generateNewID
-      
+handleNew = redirect' "/d/42" 302
+{-
+handleNew = do
+  logDSS "creating new document"
+  access <- createDocument
+  let url = getAccessURL access
+  redirect' url 302
+  -}    
 
 
 handleShare :: Handler App App ()
@@ -132,7 +134,6 @@ handleShare = method POST getter
     getter = do
       return ()
 
---redirect' OR redirect ?
 handleSayHello :: Handler App App ()
 handleSayHello = method POST getter
   where
@@ -149,10 +150,9 @@ handleSayHello = method POST getter
       liftIO $ putStrLn "*END SAYING HELLO"
 
 showCreateNewDialog :: Handler App App ()
-showCreateNewDialog = renderWithSplices "main" [("newdialog", newDialogSplice)]
+showCreateNewDialog = renderWithSplices "main" [("templatescripts", openNewDialogSplice)]
   where
-    newDialogSplice :: Monad m => I.Splice m
-    newDialogSplice = liftM (maybe [] id) $ I.evalTemplate "_new_dialog"
+    openNewDialogSplice = scriptsSplice "static/js/newdlg/" "/js/"
 
 loadExistingDocument :: Handler App App ()
 loadExistingDocument = undefined

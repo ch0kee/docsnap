@@ -2,25 +2,29 @@
   <head>
     <meta charset="utf-8">
     <title>DocSnap Multi-User Document Editor</title>
-    <link rel="stylesheet" type="text/css" href="/screen.css"/>
-    <link rel="stylesheet" type="text/css" href="/styles.css"/>
+
+    <link rel="stylesheet" type="text/css" href="/css/screen.css"/>
+    <link rel="stylesheet" type="text/css" href="/css/styles.css"/>
     <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css" />
-    <link rel="stylesheet" type="text/css" href="/redmond/jquery-ui-1.10.2.custom.css" />
-    <link rel="stylesheet" type="text/css" href="/bigbuttons/jquery-ui-1.10.2.custom.css" />
-    <link type="text/css" rel="stylesheet" href="/layout-default-latest.css" />
-    <script src="/jquery-1.9.1.js"></script>
+    <link rel="stylesheet" type="text/css" href="/css/redmond/jquery-ui-1.10.2.custom.css" />
+    <link rel="stylesheet" type="text/css" href="/css/bigbuttons/jquery-ui-1.10.2.custom.css" />
+    <link type="text/css" rel="stylesheet" href="/css/layout-default-latest.css" />
+    <script src="/js/common/jquery-1.9.1.js"></script>
     <script src="http://code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
-    <script src="/jquerypp/jquerypp.js"> </script>
-    <script src="/rangy-1.2.3/rangy-core.js"> </script>
-    <script src="/rangy-1.2.3/rangy-selectionsaverestore.js"> </script>
-    <script src="/rangy-1.2.3/rangy-cssclassapplier.js"> </script>
-    <script src="/jquery.layout-latest.js"> </script>
-    <script src="/utils.js"> </script>
-    <script src="/diff.js"> </script>
-    <script src="/docsnap.js"> </script>
+    <script src="/js/common/jquerypp/jquerypp.js"> </script>
+    <script src="/js/common/rangy-1.2.3/rangy-core.js"> </script>
+    <script src="/js/common/rangy-1.2.3/rangy-selectionsaverestore.js"> </script>
+    <script src="/js/common/rangy-1.2.3/rangy-cssclassapplier.js"> </script>
+    <script src="/js/common/jquery.layout-latest.js"> </script>
+    <script src="/js/common/utils.js"> </script>
+    <script src="/js/common/diff.js"> </script>
+    <script src="/js/common/docsnap.js"> </script>
+    <templatescripts/>
+<!--    <script src="/js/reader/docsnap-reader.js"> </script> -->
+<!--    <script src="/js/author/docsnap-author.js"> </script> -->
+<!--    <script src="/js/common/activatenewdlg.js"> </script> -->
   </head>
   <body spellcheck="false">
-    <newdialog /> 
     <div class="ui-layout-north">
       <div id="toolbar" class="ui-widget-header ui-corner-all" >
         <span class="bigbuttons">  
@@ -35,7 +39,7 @@
       <div id="content" class="ui-state-default" style="padding: 3px; text-align: center;">
          Editor 
       </div>
-      <div id="editor" class="editorinput ui-layout-content ui-widget-content" contenteditable="true"> </div>
+      <div id="editor" class="editorinput ui-layout-content ui-widget-content"> </div>
     </div>
     <div class="ui-layout-east">
       <div class="ui-state-default" style="padding: 3px; text-align: center;">

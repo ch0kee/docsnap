@@ -19,6 +19,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import Serialize (parseRevision, parseEditScript)
+import Control.Concurrent.STM
 
 --todo: we use parametrized types to lift side effects into user code
 --by using 'a' instead of 'MVar'
@@ -40,16 +41,40 @@ newtype Document = Document { revisionHistory :: RevisionHistory }
 class (MonadIO m) => HasDocumentHost m
   where
     getDocumentHost :: m (DocumentHost)
+    
 
+newtype WriteAccess = WriteAccess Accessor
+newtype ReadAccess = ReadAccess Accessor
 
+{-
+newtype DocumentWriter =
+newtype DocumentReader =
+class IDocumentContributor
+  where
+    
+    
+
+insertDoc :: HasDocumentHost m => Document -> m DocID
+insertDoc d = do
+  dh <- getDocumentHost
+  let docs = documents dh
+  docs <- liftIO $ takeMVar docs
+  
+  liftIO $ putMVar (documents dh)
+-}
 documentHostInit :: SnapletInit b DocumentHost
 documentHostInit = makeSnaplet "dochost" "DocumentHost Snaplet" Nothing $ do
   docs <- liftIO $ newMVar (M.singleton 42 (Document []))
   das <- liftIO $ newMVar (M.singleton "42" (DocumentAccess { permission = Author, docid = 42 }))
   return DocumentHost { documents = docs, documentAccesses = das }
-
-createDocument :: HasDocumentHost m => m (Accessor)
+{-
+createDocument :: HasDocumentHost m => m WriteAccess
 createDocument = undefined
+  where
+    emptyDoc = Document { revisionHistory = [] }
+
+
+getAccessURL
 
 --todo: use newtype instead of type if possible
 --todo: more informal error cause
@@ -65,11 +90,14 @@ tryAccessDocument id = do
     Just acc -> case M.lookup (docid acc) docs of
       Nothing -> return Nothing
       Just doc -> return $ Just (permission acc, doc)
-
+-}
 
 data RevisionControl = RevisionControl {
   rc_revisions :: MVar [Revision]
 }
+
+
+
 
 getTestDocument :: HasDocumentHost m => m (Document)
 getTestDocument = do

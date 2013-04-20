@@ -286,7 +286,3 @@ DiffEngine.prototype.getShortestEditScript = function(oldString, newString) {
     }
   }
 }
-
-if (typeof module !== 'undefined') {
-  module.exports = JsDiff;
-}
