@@ -31,6 +31,7 @@ data DocumentAccess = DocumentAccess {
   permission :: Permission
 , docid :: DocID
 }
+type DocumentRef = Integer
 type DocID = Integer
 type Accessor = String
 data Permission = Author | Reader
@@ -40,11 +41,15 @@ class (MonadIO m) => HasDocumentHost m
   where
     getDocumentHost :: m (DocumentHost)
 
+
 documentHostInit :: SnapletInit b DocumentHost
 documentHostInit = makeSnaplet "dochost" "DocumentHost Snaplet" Nothing $ do
   docs <- liftIO $ newMVar (M.singleton 42 (Document []))
   das <- liftIO $ newMVar (M.singleton "42" (DocumentAccess { permission = Author, docid = 42 }))
   return DocumentHost { documents = docs, documentAccesses = das }
+
+createDocument :: HasDocumentHost m => m (Accessor)
+createDocument = undefined
 
 --todo: use newtype instead of type if possible
 --todo: more informal error cause
@@ -140,6 +145,8 @@ nextVersion = (+1) . latestVersion
 after :: Version -> [Revision] -> [Revision]
 after v rs = dropWhile (\r -> (snd $ un_revision r) <= v) rs
 
+--commit2 :: AuthorAccess -> Revision -> m Result
+--commit2 aacc 
 
 -- rak [+2:ab|=3] abrak
 commit :: HasDocumentHost m => String -> m Response

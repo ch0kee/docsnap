@@ -20,6 +20,7 @@
     <script src="/docsnap.js"> </script>
   </head>
   <body spellcheck="false">
+    <newdialog /> 
     <div class="ui-layout-north">
       <div id="toolbar" class="ui-widget-header ui-corner-all" >
         <span class="bigbuttons">  
@@ -32,9 +33,9 @@
     </div>
     <div class="ui-layout-center">
       <div id="content" class="ui-state-default" style="padding: 3px; text-align: center;">
-         Editor
+         Editor 
       </div>
-      <div id="editor" class="editorinput ui-layout-content ui-widget-content" contenteditable="true"></div>
+      <div id="editor" class="editorinput ui-layout-content ui-widget-content" contenteditable="true"> </div>
     </div>
     <div class="ui-layout-east">
       <div class="ui-state-default" style="padding: 3px; text-align: center;">

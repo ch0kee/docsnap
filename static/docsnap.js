@@ -12,7 +12,7 @@ syncContent = "";
 currentRevision = 0; //0. revision is the empty content
 applyCommittedChanges = true; //alkalmazzuk-e a módosításokat külön,
 savedCaretPos = null;
-syncInterval = 400;
+syncInterval = 5000;
 //vagy egyszerűen használjuk az elküldéskor érvényes tartalmat
 //(false is the way to go)
 
@@ -137,6 +137,43 @@ $(document).ready(function() {
   $("#bold").button();
   $("#italic").button();
 
+  $( "#newdialog" ).dialog({
+    autoOpen: true
+  , modal: true
+  , buttons: [ {text: "Create New Document", click: function() {
+      window.location.href = 'cnew';
+/*
+  //todo: disable interaction until response
+      $.ajax({
+        url     : "/cnew",
+        type    : "POST",
+        dataType: "html",
+        cache   : false,
+        data    : {
+          d: "hello"
+        },
+        success : function(ret) {
+          console.log("???");
+        },
+        error : function( xhr, status ) {
+          console.log("???");
+        },
+        complete : function( xhr, status ) {
+          console.log("???");
+        }
+      });*/      
+    }}]
+  , draggable: false
+  , height: 100
+  , width: 300
+  , resizable: false
+  , dialogClass: 'no-close'
+  });
+  //$( "#opener" ).click(function() {
+  //  $( "#dialog" ).dialog( "open" );
+  //});
+
+
   layout = $('body').layout({
 		north__resizable:			false
     , north__minSize: 70
@@ -173,78 +210,92 @@ $(document).ready(function() {
   boldApplier = rangy.createCssClassApplier("ds_bold");
   italicApplier = rangy.createCssClassApplier("ds_italic");
 
-  setInterval(showPreview, 200);
 
 //  $('#hello').click( function() {
     //start loading progress bar
-    $.ajax({
-      url     : "chello",
-      type    : "POST",
-      dataType: "html",
-      cache   : false,
-      data    : {
-        d: "hello"
-      },
-      success : function(revision) {
-        console.log("Kewl, we said hello!");
-        console.log(revision);
-        var srvVersion = parseInt(revision);
-        var srvChangesIndex = revision.indexOf('[');
-        var srvChanges = revision.substr(srvChangesIndex);
-        syncContent = diffEngine.executeES1(syncContent, srvChanges);
-        currentRevision = srvVersion;
-        actualContent(syncContent);
+  $.ajax({
+    url     : "/chello",
+    type    : "POST",
+    dataType: "html",
+    cache   : false,
+    data    : {
+      d: "hello"
+    },
+    success : function(revision) {
+      console.log("Kewl, we said hello!");
+      console.log(revision);
+      var srvVersion = parseInt(revision);
+      var srvChangesIndex = revision.indexOf('[');
+      var srvChanges = revision.substr(srvChangesIndex);
+      syncContent = diffEngine.executeES1(syncContent, srvChanges);
+      currentRevision = srvVersion;
+      actualContent(syncContent);
 
-        setTimeout(synchronizeContent, syncInterval);
-      },
-      error : function( xhr, status ) {
-        console.log("Sorry, there was a problem!");
-      },
-      complete : function( xhr, status ) {
-        //alert("The request is complete!");
-      }
-    });
+      setTimeout(synchronizeContent, syncInterval);
+    },
+    error : function( xhr, status ) {
+      console.log("Sorry, there was a problem!");
+    },
+    complete : function( xhr, status ) {
+      //alert("The request is complete!");
+    }
+  });
+  
+  /*
+  var jqxhr = $.post("example.php", function() {
+alert("success");
+})
+.done(function() { alert("second success"); })
+.fail(function() { alert("error"); })
+.always(function() { alert("finished"); });
+  */
+  
 //  });
 
-    $("#editor").on({
-      //TAB must be handled here because keypress in
-      //Chrome is already too late
-      keydown: function(ev) {
-        var code = ev.keyCode || ev.which;
-        console.log(code);
-        if (code == 9) {
-        //TAB
-          pasteHtmlAtSelection('&nbsp;&nbsp;&nbsp;&nbsp;');
-          ev.preventDefault();
-        }
-      },
-
-      keypress: function(ev){
-        var code = ev.keyCode || ev.which;
-        console.log(code);
-        //ENTER
-        if (code == 13) {
-          pasteHtmlAtSelection('<br>');
-          ev.preventDefault();
-        }
-      },
-
-      input: function() {
-        setModified(true);
+  $("#editor").on({
+    //TAB must be handled here because keypress in
+    //Chrome is already too late
+    keydown: function(ev) {
+      var code = ev.keyCode || ev.which;
+      console.log(code);
+      if (code == 9) {
+      //TAB
+        pasteHtmlAtSelection('&nbsp;&nbsp;&nbsp;&nbsp;');
+        ev.preventDefault();
       }
-    });
+    },
 
-    $("#bold").mousedown(function(e) {
-      boldApplier.toggleSelection();
-      e.preventDefault();
-    });
+    keypress: function(ev){
+      var code = ev.keyCode || ev.which;
+      console.log(code);
+      //ENTER
+      if (code == 13) {
+        pasteHtmlAtSelection('<br>');
+        ev.preventDefault();
+      }
+    },
 
-    $("#italic").mousedown(function(e) {
-      italicApplier.toggleSelection();
-      e.preventDefault();
-    });
-    
-    $("#editor").focus();
+    input: function() {
+      setModified(true);
+    }
+  });
+
+  $("#bold").mousedown(function(e) {
+    boldApplier.toggleSelection();
+    e.preventDefault();
+  });
+
+  $("#italic").mousedown(function(e) {
+    italicApplier.toggleSelection();
+    e.preventDefault();
+  });
+  
+  //$("#editor").focus();
+  $("#newdialog").focus();
+  $("#newdialog").dialog("option", "position", "center");
+  $(window).resize(function() {
+    $("#newdialog").dialog("option", "position", "center");
+  });
 });
 
 modified=false;
@@ -253,9 +304,6 @@ function setModified(modified) {
 }
 
 
-function showPreview() {
-  $('#preview').text( actualContent() );
-}
 
 
 

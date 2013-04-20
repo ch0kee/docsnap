@@ -10,3 +10,6 @@
   font-style: italic;
 }
 
+.no-close .ui-dialog-titlebar-close {
+  display: none
+}

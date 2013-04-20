@@ -66,8 +66,8 @@ logDSS = liftIO . putStrLn
 -- $(deriveJSON id ''Remove)
 
 --todo: handle permissions
-handleOpenDocument :: Handler App App ()
-handleOpenDocument = render "test"--writeBS "nothing yet"
+handleOpen :: Handler App App ()
+handleOpen = render "test"--writeBS "nothing yet"
 {-
 handleOpenDocument = do
   id <- getParam "id"
@@ -116,10 +116,14 @@ handleContentUpdate = method POST getter
 
 
 handleNew :: Handler App App ()
-handleNew = method POST getter
+handleNew = method GET getter
   where
     getter = do
-      return ()
+      logDSS "creating new document"
+      redirect' "/d/42" 303
+      --writeBS "creating new document"
+      --id <- generateNewID
+      
 
 
 handleShare :: Handler App App ()
@@ -128,14 +132,13 @@ handleShare = method POST getter
     getter = do
       return ()
 
+--redirect' OR redirect ?
 handleSayHello :: Handler App App ()
 handleSayHello = method POST getter
   where
     getter = do
       liftIO $ putStrLn "*START SAYING HELLO"
-      withSession sessionLens $
-        with sessionLens $ setInSession "contributor" "0"
-      with sessionLens commitSession
+      --with sessionLens commitSession
       --doc <- createNewDocument
       --testdoc <- getTestDocument
       --visszakuldjuk neki az osszes reviziot
@@ -144,6 +147,29 @@ handleSayHello = method POST getter
       --liftIO $ putStrLn $ serialize (concatRevisions revs)
       writeBS $ strToBs $ serialize (concatRevisions revs)
       liftIO $ putStrLn "*END SAYING HELLO"
+
+showCreateNewDialog :: Handler App App ()
+showCreateNewDialog = renderWithSplices "main" [("newdialog", newDialogSplice)]
+  where
+    newDialogSplice :: Monad m => I.Splice m
+    newDialogSplice = liftM (maybe [] id) $ I.evalTemplate "_new_dialog"
+
+loadExistingDocument :: Handler App App ()
+loadExistingDocument = undefined
+  --heistLocal (bindSplice newDialogSplice) $ render "main"
+  
+
+handleInit :: Handler App App ()
+handleInit = do
+  maybe_savedid <- withSession sessionLens $ with sessionLens $ getFromSession "id"
+  case maybe_savedid of
+    Nothing -> do
+      liftIO $ putStrLn "No saved session"
+      showCreateNewDialog
+--      withSession sessionLens $ with sessionLens $ setInSession "id" "42"
+    Just savedid -> do
+      liftIO $ putStrLn "Saved session found"
+  --ifTop $ render "main"
 
 modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = do
@@ -169,25 +195,25 @@ strToBs =  E.encodeUtf8 . T.pack
 -- | The application's routes.
 --todo: gyökérben menjen az opendocument
 routes :: [(ByteString, Handler App App ())]
-routes = [ ("/chello",   handleSayHello)
+routes = [ ("/", ifTop $ handleInit)
+         , ("/chello",   handleSayHello)
          , ("/cupdate",  handleContentUpdate)
          , ("/cnew", handleNew)
          , ("/cshare", handleShare)
-         --, ("", ifTop $ serveDirectory "static")
-         , ("/d/:id", handleOpenDocument)
-         , ("",  serveDirectory "static")
-         , ("", with heist heistServe)
+         , ("/d/:id", handleOpen)
+         , ("/", with heist heistServe)
+         , ("/", serveDirectory "static")
          ]
 
 ------------------------------------------------------------------------------
 -- | The application initializer.
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
+  addRoutes routes
   h <- nestSnaplet "heist" heist $ heistInit "templates"
   s <- nestSnaplet "sess" sessionLens $
          initCookieSessionManager "site_key.txt" "sess" (Just 3600)
   --rc <- nestSnaplet "revctrl" revLens $ revisionControlInit
   dh <- nestSnaplet "dochost" docHostLens $ documentHostInit
-  addRoutes routes
   return $ App h s dh
 
