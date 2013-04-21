@@ -12,7 +12,7 @@ function  synchronizeContent() {
   console.log('sending ' + sentRevision);
 
   $.ajax({
-    url     : "cupdate",
+    url     : "/cmd/update",
     type    : "POST",
     dataType: "html",
     cache   : false,
@@ -92,35 +92,6 @@ $(document).ready(function() {
   $("#editor").attr('contenteditable',true);
   boldApplier = rangy.createCssClassApplier("ds_bold");
   italicApplier = rangy.createCssClassApplier("ds_italic");
-
-    //start loading progress bar
-  $.ajax({
-    url     : "/chello",
-    type    : "POST",
-    dataType: "html",
-    cache   : false,
-    data    : {
-      d: "hello"
-    },
-    success : function(revision) {
-      console.log("Kewl, we said hello!");
-      console.log(revision);
-      var srvVersion = parseInt(revision);
-      var srvChangesIndex = revision.indexOf('[');
-      var srvChanges = revision.substr(srvChangesIndex);
-      syncContent = diffEngine.executeES1(syncContent, srvChanges);
-      currentRevision = srvVersion;
-      actualContent(syncContent);
-
-      setTimeout(synchronizeContent, syncInterval);
-    },
-    error : function( xhr, status ) {
-      console.log("Sorry, there was a problem!");
-    },
-    complete : function( xhr, status ) {
-      //alert("The request is complete!");
-    }
-  });
   
   $("#editor").on({
     //TAB must be handled here because keypress in
@@ -160,6 +131,34 @@ $(document).ready(function() {
     e.preventDefault();
   });
   
+      //start loading progress bar
+  $.ajax({
+    url     : "/cmd/init",
+    type    : "POST",
+    dataType: "html",
+    cache   : false,
+    data    : {
+      d: "hello"
+    },
+    success : function(revision) {
+      console.log("Kewl, we said hello!");
+      console.log(revision);
+      var srvVersion = parseInt(revision);
+      var srvChangesIndex = revision.indexOf('[');
+      var srvChanges = revision.substr(srvChangesIndex);
+      syncContent = diffEngine.executeES1(syncContent, srvChanges);
+      currentRevision = srvVersion;
+      actualContent(syncContent);
+
+      setTimeout(synchronizeContent, syncInterval);
+    },
+    error : function( xhr, status ) {
+      console.log("Sorry, there was a problem!");
+    },
+    complete : function( xhr, status ) {
+      //alert("The request is complete!");
+    }
+  });
 });
 
 modified=false;

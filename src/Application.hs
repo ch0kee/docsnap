@@ -13,14 +13,14 @@ import Snap.Snaplet.Auth
 import Snap.Snaplet.Session
 import Data.IORef
 import qualified Data.ByteString as B
-import Control.Monad.State (get)
+import Control.Monad.State (get, modify)--, put, modify)
 
-import DocSnapServer
+import Internal.Types
 
 ------------------------------------------------------------------------------
 data App = App
     { _heist :: Snaplet (Heist App)
-    , _sessionLens :: Snaplet SessionManager
+    , _session :: Snaplet SessionManager
     --, _revLens :: Snaplet (RevisionControl)
     , _docHostLens :: Snaplet DocumentHost
     }
@@ -28,10 +28,11 @@ data App = App
 makeLenses ''App
 
 instance HasHeist App where
-    heistLens = subSnaplet heist
+  heistLens = subSnaplet heist
 
-instance HasDocumentHost (Handler App App) where
+instance HasDocumentHost (Handler b App) where
   getDocumentHost = with docHostLens get
+  modifyDH f = with docHostLens (modify f)
 
 
 --instance HasRevisionControl (Handler App App) where

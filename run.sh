@@ -7,6 +7,6 @@ killall DocSnap
 rm log/*.log
 
 # Launch server
-~/.cabal/bin/DocSnap
+DocSnap
 
 echo ">> terminated properly <<"

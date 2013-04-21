@@ -4,7 +4,7 @@ $(document).ready(function() {
     autoOpen: true
   , modal: true
   , buttons: [ {text: "Create New Document", click: function() {
-      window.location.href = 'cnew';
+      window.location.href = '/cmd/new';
     }}]
   , draggable: false
   , height: 100

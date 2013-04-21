@@ -3,22 +3,22 @@
     <meta charset="utf-8">
     <title>DocSnap Multi-User Document Editor</title>
 
-    <link rel="stylesheet" type="text/css" href="/css/screen.css"/>
-    <link rel="stylesheet" type="text/css" href="/css/styles.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/screen.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/styles.css"/>
     <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css" />
-    <link rel="stylesheet" type="text/css" href="/css/redmond/jquery-ui-1.10.2.custom.css" />
-    <link rel="stylesheet" type="text/css" href="/css/bigbuttons/jquery-ui-1.10.2.custom.css" />
-    <link type="text/css" rel="stylesheet" href="/css/layout-default-latest.css" />
-    <script src="/js/common/jquery-1.9.1.js"></script>
+    <link rel="stylesheet" type="text/css" href="/static/css/redmond/jquery-ui-1.10.2.custom.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/bigbuttons/jquery-ui-1.10.2.custom.css" />
+    <link type="text/css" rel="stylesheet" href="/static/css/layout-default-latest.css" />
+    <script src="/static/js/common/jquery-1.9.1.js"></script>
     <script src="http://code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
-    <script src="/js/common/jquerypp/jquerypp.js"> </script>
-    <script src="/js/common/rangy-1.2.3/rangy-core.js"> </script>
-    <script src="/js/common/rangy-1.2.3/rangy-selectionsaverestore.js"> </script>
-    <script src="/js/common/rangy-1.2.3/rangy-cssclassapplier.js"> </script>
-    <script src="/js/common/jquery.layout-latest.js"> </script>
-    <script src="/js/common/utils.js"> </script>
-    <script src="/js/common/diff.js"> </script>
-    <script src="/js/common/docsnap.js"> </script>
+    <script src="/static/js/common/jquerypp/jquerypp.js"> </script>
+    <script src="/static/js/common/rangy-1.2.3/rangy-core.js"> </script>
+    <script src="/static/js/common/rangy-1.2.3/rangy-selectionsaverestore.js"> </script>
+    <script src="/static/js/common/rangy-1.2.3/rangy-cssclassapplier.js"> </script>
+    <script src="/static/js/common/jquery.layout-latest.js"> </script>
+    <script src="/static/js/common/utils.js"> </script>
+    <script src="/static/js/common/diff.js"> </script>
+    <script src="/static/js/common/docsnap.js"> </script>
     <templatescripts/>
 <!--    <script src="/js/reader/docsnap-reader.js"> </script> -->
 <!--    <script src="/js/author/docsnap-author.js"> </script> -->
