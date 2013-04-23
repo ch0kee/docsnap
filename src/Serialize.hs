@@ -1,19 +1,8 @@
------------------------------------------------------------------------------
---
--- Module      :  Serialize
--- Copyright   :
--- License     :  AllRightsReserved
---
--- Maintainer  :  csokkerfalva@gmail.com
--- Stability   :  Experimental
--- Portability :
---
--- |
---
------------------------------------------------------------------------------
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Serialize (
-  parseEditScript,
   parseRevision,
   serialize
 ) where
@@ -23,70 +12,52 @@ import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
 --import qualified Text.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language (emptyDef)
-
+import    Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Internal.Types
-
+import qualified Data.Text as T
+import Data.Aeson
+import qualified Data.Aeson.Generic as A
+import Data.Aeson.TH
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import Control.Monad (replicateM, mapM)
 -- [=14|+3:alm|-2]
 
-lexer = P.makeTokenParser emptyDef
-natural = P.natural lexer
 
---majd az egymás utáni addokat meg stb-t össze kellene vonni
+test = JRevision 10 [ I "proba", P 24, R 5]
+test2 = JRevision 10 []
+
+lbsToBs :: BL.ByteString -> B.ByteString
+lbsToBs = B.pack . BL.unpack
+
+bsToLbs :: B.ByteString -> BL.ByteString
+bsToLbs = BL.pack . B.unpack
+
+$(deriveJSON id ''JPackedEdit)
+$(deriveJSON id ''JRevision)
+
+
+--egyelőre 
+toJPackedEdit :: PackedEdit -> JPackedEdit
+toJPackedEdit (Inserts s) = I $ T.pack s 
+toJPackedEdit (Removes n) = R n 
+toJPackedEdit (Preserves n) = P n 
+
+fromJPackedEdit :: JPackedEdit -> PackedEdit
+fromJPackedEdit (I s) = Inserts $ T.unpack s 
+fromJPackedEdit (R n) = Removes n 
+fromJPackedEdit (P n) = Preserves n 
+
+
+
 serialize :: Revision -> String
-serialize (Revision (es, v)) = (show v) ++ ('[':(serialize' es)++"]")
+serialize (Revision (es, v)) = T.unpack . decodeUtf8 . lbsToBs . A.encode $ JRevision v (map toJPackedEdit es)
+
+
+parseRevision :: B.ByteString -> Maybe Revision
+parseRevision = convert . A.decode . bsToLbs
   where
-    serialize' :: [Edit] -> String
-    serialize' [] = ""
-    serialize' (e:es) = foldl (\s e' -> s ++ ('|':serialize'' e')) (serialize'' e) es
-      where
-        serialize'' (Insert c) = "+1:"++[c]
-        serialize'' Remove = "-1"
-        serialize'' Preserve = "=1"
-
-parseEditScript :: String -> Either ParseError [Edit]
-parseEditScript input = parse editscript "error" input
-
-parseRevision :: String -> Either ParseError Revision
-parseRevision input = parse revision "error" input
-
-editscript :: CharParser () [Edit]
-editscript = do
-  char '['
-  edits <- sepBy edit (char '|')
-  char ']'
-  return $ concat edits
-
-revision :: CharParser () Revision
-revision = do
-  version <- natural
-  edits <- editscript
-  return $ Revision (edits, fromInteger version)
-
-edit :: CharParser () [Edit]
-edit =  try insert --insert
-    <|> try remove --remove
-    <|> try preserve --preserve
-
-insert :: CharParser () [Edit]
-insert = do
-  char '+'
-  n <- natural
-  char ':'
-  ins <- count (fromInteger n) anyChar
-  mapM (\c -> return $ Insert c) ins
-
-remove :: CharParser () [Edit]
-remove = do
-  char '-'
-  n <- natural
-  replicateM (fromInteger n) $ return Remove
-
-preserve :: CharParser () [Edit]
-preserve = do
-  char '='
-  n <- natural
-  replicateM (fromInteger n) $ return Preserve
-
+    convert Nothing = Nothing
+    convert (Just (JRevision v es)) = Just $ Revision (map fromJPackedEdit es, v) 
 
 

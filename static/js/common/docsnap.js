@@ -1,66 +1,18 @@
-
-function  actualContent(newContent) {
-  if (actualContent.arguments.length == 0)
-    return $('#editor').html();
-  else
-    $('#editor').html(newContent);
-}
-
-diffEngine = new DiffEngine();
-
-syncContent = "";
-currentRevision = 0; //0. revision is the empty content
-applyCommittedChanges = true; //alkalmazzuk-e a módosításokat külön,
-savedCaretPos = null;
-syncInterval = 5000;
-//vagy egyszerűen használjuk az elküldéskor érvényes tartalmat
-//(false is the way to go)
-
-// "<b>H</b>e&nbsp;<br>l" -->
-// ["<b>", "H", "</b>", "e", "&nbsp;", "<br>", "l"]
-function tokenize(data) {
-  var tokens = new Array();
-  var len = data.length;
-  var idx = 0;
-  var tokenizerRegex = new RegExp("<[^>]+>|&[a-z]+;|<\/[^>]+>", "g");
-  var res = null;
-  while ( (res = tokenizerRegex.exec(data)) ) {
-    //megelozo karakterek
-    for(var i = idx; i < res.index; ++i) {
-      tokens.push(data[i]);
-    }
-
-    tokens.push(res[0]);
-
-    idx = res.index + res[0].length;
-  }
-  for(var i = idx; i < len; ++i) {
-    tokens.push(data[i]);
-  }
-  return tokens;
-}
-
 layout = null;
 
 $(document).ready(function() {
+
+  function actualContent(newContent) {
+    if (actualContent.arguments.length == 0)
+      return $('#editor').html();
+    else
+      $('#editor').html(newContent);
+  }
   $("#new").button();
   $("#share").button();
   $("#bold").button();
   $("#italic").button();
-/*
-  $( "#newdialog" ).dialog({
-    autoOpen: true
-  , modal: true
-  , buttons: [ {text: "Create New Document", click: function() {
-      window.location.href = 'cnew';
-    }}]
-  , draggable: false
-  , height: 100
-  , width: 300
-  , resizable: false
-  , dialogClass: 'no-close'
-  });
-*/
+  
   layout = $('body').layout({
 		north__resizable:			false
     , north__minSize: 70
@@ -94,9 +46,6 @@ $(document).ready(function() {
   });
 
   rangy.init(); //css alkalmazásokhoz
-
-  
-  
 });
 
 

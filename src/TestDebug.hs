@@ -1,25 +1,17 @@
-module TestDebug
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
-data Expr a = I Int
-            | B Bool
-            | Add (Expr a) (Expr a)
-            | Mul (Expr a) (Expr a)
-            | Eq  (Expr a) (Expr a)
-
-add :: Expr Int -> Expr Int -> Expr Int
-add = Add
-
-i :: Int  -> Expr Int
-i = I
-b :: Bool -> Expr Bool
-b = B
-
-eval :: Expr a -> a
-eval (I 5 :: Expr Int)
+module TestDebug where
 
 
-pure (.)
+data Expr a where
+   I   :: Int  -> Expr Int
+   B   :: Bool -> Expr Bool
+   Add :: Expr Int -> Expr Int -> Expr Int
+   Mul :: Expr Int -> Expr Int -> Expr Int
+   Eq  :: Expr Int -> Expr Int -> Expr Bool
 
-pure :: a -> f a
-
-(.) :: (b -> c) -> (a -> b) -> a -> c
+data Test Int where
+  Q :: String -> Test 3   
+   
+deriving instance Show (Expr a)

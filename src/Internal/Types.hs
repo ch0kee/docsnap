@@ -1,6 +1,8 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+
 
 module Internal.Types where
 
@@ -14,24 +16,36 @@ import  Control.Monad.Trans
 type Content = String
 type Length = Int
 type Count = Int
-data Edit = Insert Char | Preserve | Remove
-  deriving (Show)
-
-type Version = Int
-newtype Revision = Revision ([Edit], Version)
-  deriving (Show)
 
 data PackedEdit = Inserts String | Preserves Count | Removes Count
   deriving (Show)
-newtype PackedRevision = PackedRevision ([PackedEdit], Version)
+
+data SingleEdit = Insert Char | Preserve | Remove
   deriving (Show)
+
+data JPackedEdit = I T.Text
+           | P Int
+           | R Int
+  deriving (Show, Data, Typeable)
+           
+data JRevision = JRevision { version::Version, edits::[JPackedEdit] }
+  deriving (Show, Data, Typeable)
+
+type Version = Int
+
+--átnevezni, ez valójában azt mondja meg, hogy
+--aki küldei, melyik verzión van, és mivel van lemaradva
+--az, akinek küldi
+newtype Revision = Revision ([PackedEdit], Version)
+  deriving (Show)
+
 
 data Response  = CommitSuccessful Version
                | CheckoutOnly Revision
                | NoChanges
   deriving (Show)
   
-  
+
   
 data InitialCheckout = InitialCheckout { content :: T.Text }
   deriving (Data,Typeable,Show)
@@ -41,7 +55,6 @@ type TShareMap = TVar (M.Map SharedKey TDocument)
 data DocumentHost = DocumentHost {
   authorShareMap :: TShareMap
 , readerShareMap :: TShareMap
-, access :: Maybe AuthorAccess
 }
 
 data Author
@@ -49,7 +62,7 @@ data Reader
 
 data AuthorAccess = AuthorAccess { key :: SharedKey, doc :: TDocument }
 
-type SharedKey = String
+type SharedKey = T.Text
 type DocumentRef = Integer
 type RevisionHistory = [Revision]
 newtype Document = Document { revisions :: RevisionHistory }
@@ -58,3 +71,5 @@ class MonadIO m => HasDocumentHost m
   where
     getDocumentHost :: m DocumentHost
     modifyDH :: (DocumentHost -> DocumentHost) -> m ()
+    
+    

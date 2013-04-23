@@ -21,7 +21,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Maybe
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
+import    Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Heist
@@ -51,22 +51,19 @@ import Internal.Types
 import Snap.Extras.SpliceUtils
 import Debug.Trace
 import Data.Monoid (mempty)
+import Control.Monad.Trans.Maybe --del
 
--- tartalom kibontasa
-fromMaybeContent :: Maybe ByteString -> ByteString
-fromMaybeContent (Just bs) = bs
-fromMaybeContent Nothing = B.empty
 
 --data Insert = Insert { index :: Int, content :: String }
 --  deriving (Show)
 
 bsToStr :: ByteString -> String
-bsToStr =  T.unpack . E.decodeUtf8
+bsToStr =  T.unpack . decodeUtf8
 
 strToBs :: String -> ByteString
-strToBs =  E.encodeUtf8 . T.pack
+strToBs =  encodeUtf8 . T.pack
 
-logDSS s = liftIO $ putStrLn ("** " ++ s)
+
 logDSSb c s = liftIO $ putStrLn (c:"** " ++ s)
 logDSSa c s = liftIO $ putStrLn ("** " ++ s ++ [c])
 
@@ -75,61 +72,45 @@ logDSSa c s = liftIO $ putStrLn ("** " ++ s ++ [c])
 
 --accessAsAuthor: megprobalja elerni a doksit a sütin és
 --az url-en keresztül, ha nem megy megszakad az aktuális kezelő
-accessAsAuthor :: Handler App App AuthorAccess
-accessAsAuthor = do
-  macc <- do
-    msk <- with session $ getFromSession "sk"
-    case msk of
-      Nothing -> return Nothing 
-      Just sk -> tryAccessAsAuthor . T.unpack $ sk
-    
-  case macc of
-    Nothing -> do
-      with session $ withSession session $ resetSession --vagy nincs süti, vagy nincs doksi, mindenkepp rossz a süti
-      --probaljuk meg az URL-bol kibanyaszni :/
-      r <- getRequest
-      let uri = rqURI r
-      logDSS ("looking for sk rqURI:" ++ bsToStr uri) --talán rqPathInfo-ban jobb adat van
-      macc' <- tryAccessAsAuthor . T.unpack . T.takeWhile (/='/') . T.dropWhile (=='/') . E.decodeUtf8 $ uri
-      case macc' of
-        Nothing -> do --nincs mit tenni, kuka minden, esetleg dobhatunk egy hibaüzenetet
-          redirect "/"
-        Just acc -> do--valószínüleg kikapcsolta a sütiket, áttérünk URL írásra
-          --with session $ withSession session $ setInSession "sk" (T.pack $ key acc) --próbáljuk megint letárolni
-          return acc
-    Just acc -> do --ok, a sütiben jó adat van
-      with session $ withSession session $ touchSession --kell commit ehhez?
-      return acc
-  
--- Lekezeljuk az uj adatot
-handleContentUpdate :: Handler App App ()
-handleContentUpdate = method POST getter
-  where
-    getter = do
-      logDSS "HANDLE_CONTENT_UPDATE"
-      ccp <- getParam "d"
-      case ccp of
-        Nothing -> undefined --error
-        Just c  | (not . B.null) c -> handleCommit c
-                | otherwise -> undefined --error
+--todo:authoraccess monad
 
-    handleCommit :: ByteString -> Handler App App ()
-    handleCommit cdata = do
-      logDSS ">> START HANDLE COMMIT"
-      logDSS ("RECEIVED [" ++ bsToStr cdata ++ "]")
-      a <- accessAsAuthor
-      response <- commit (bsToStr cdata) a
-      case response of
-        CommitSuccessful v -> do --
-          writeBS $ strToBs $ 'd':(show v)
-          logDSS ("NEW VERSION [" ++ 'd':(show v) ++ "]")
-        CheckoutOnly r -> do --
-          writeBS $ strToBs $ 'o':(serialize r)
-          logDSS ("CHECKED OUT [" ++ 'o':(serialize r) ++ "]")
-        NoChanges -> do
-          writeBS $ strToBs $ "n"
-          logDSS ("NO CHANGES")
-      logDSS "<< END HANDLE COMMIT"
+--kulcs lekérése
+getSharedKey :: AppHandler (Maybe SharedKey)
+getSharedKey = do { msk <- getParam "sk"; return $ msk >>= Just . decodeUtf8 }
+
+--visszaküld kezdőlapra hiba esetén
+maybeDenied :: (a -> AppHandler b) -> Maybe a -> AppHandler b
+maybeDenied = maybe (redirect "/")
+--maybeDeniedWith $ return ()
+
+
+--maybeDeniedWith :: AppHandler () -> (a -> AppHandler b) -> Maybe a -> AppHandler b
+--maybeDeniedWith f = maybe $ f >> redirect "/"
+
+accessAsAuthor :: AppHandler AuthorAccess
+accessAsAuthor = getSharedKey >>= maybeDenied (\sk -> tryAccessAsAuthor sk >>= maybeDenied return)
+
+--kitörli a sütiket is
+--accessAsAuthor' :: AppHandler AuthorAccess
+--accessAsAuthor' = getSharedKey >>= maybeDeniedWith f (\sk -> tryAccessAsAuthor sk >>= maybeDeniedWith f return)
+--  where
+--    f = (with session $ withSession session $ resetSession)
+ 
+-- Lekezeljuk az uj adatot
+handleContentUpdate :: AppHandler ()
+handleContentUpdate = trace "HANDLE_CONTENT_UPDATE" $ do
+  a <- accessAsAuthor
+  getParam "args" >>= maybeDenied (\d -> trace "handle_commit" $ handleCommit a d)
+  where
+    handleCommit :: AuthorAccess -> B.ByteString -> AppHandler ()
+    handleCommit a cdata = do
+      --logDSS ("RECEIVED [" ++ bsToStr cdata ++ "]")
+      response <- commit cdata a
+      let respdata = serialize response
+      --logDSS ("RESPONSE [" ++ respdata ++ "]")
+      logDSS "*** NOW SENDING ***"
+      writeBS $ strToBs $ respdata
+      logDSS "*** SENT ***"
       
 --   DJKFFSDKFKSDJF
 --    Openben az url alapján kell nyitni, nem cookie alapján!
@@ -138,76 +119,68 @@ handleContentUpdate = method POST getter
 --feldobunk egy dialogot a hibaüzenettel
 --figyelve arra, hogy ha van sessionje, akkor azt ne töröljük
 --jobb lenne, ha több tabon tudna dolgozni
-handleOpen :: Handler App App ()
-handleOpen = do
-  logDSS "HANDLE_OPEN"
-  sk <- getParam "sk"
-  --params <- getParams
-  --logDSS $ "params=" ++ (show params)
+handleOpen :: AppHandler ()
+handleOpen = trace "HANDLE_OPEN" $ do
   accessAsAuthor
   loadExistingDocument
+  getSharedKey >>= \sk -> maybeDenied storeSession sk
     where
-      loadExistingDocument = renderWithSplices "main" [("templatescripts", authorSplice)]
+      storeSession sk = with session $ do {resetSession ; setInSession "sk" sk; commitSession}
+      loadExistingDocument = renderWithSplices "main"
+        [ ("access_scripts", authorSplice)
+        , ("sync_scripts", syncSplice) ]
       authorSplice = scriptsSplice "static/js/author/" "/static/js/"
+      syncSplice = scriptsSplice "static/js/sync/" "/static/js/"
 
-getAccessURI :: SharedKey -> String
-getAccessURI = ("/"++) 
+getAccessURI :: AuthorAccess -> ByteString
+getAccessURI = encodeUtf8 . key
 
-handleNew :: Handler App App ()
-handleNew = do
-  logDSS "HANDLE_NEW"
-  sk <- createDocument
-  let url = getAccessURI sk
-  with session $ do
-    resetSession
-    setInSession "sk" (T.pack sk)
-    commitSession
-  redirect (strToBs url)
+handleNew :: AppHandler ()
+handleNew = trace "HANDLE_NEW" $ createDocument >>= redirect . getAccessURI
 
 
-handleShare :: Handler App App ()
-handleShare = method POST getter
+
+handleShare :: AppHandler ()
+handleShare = trace "HANDLE_SHARE" $ return ()
+
+handleInitialCheckout :: AppHandler ()
+handleInitialCheckout = do
+  logDSS "handling initial checkout"
+  revs <- getRevisions =<< accessAsAuthor
+  --logDSS $ show revs
+  
+  let curRev = concatRevisions revs
+  logDSS $ show curRev
+  d <- return . serialize $ maybe (Revision ([],0)) id curRev  
+  logDSS "now sending"
+  writeBS $ strToBs d
+  logDSS "sent"
+  --logDSS d
+  logDSS "initial checkout handled"
+  logDSS "handling initial checkout"
   where
-    getter = do
-      logDSS "HANDLE_SHARE"
-      return ()
+   
 
-handleInitialCheckout :: Handler App App ()
-handleInitialCheckout = method POST getter
-  where
-    getter = do
-      logDSS "HANDLE_INITIAL_CHECKOUT"
-      a <- accessAsAuthor
-      logDSS "initial checkout"
-      revs <- getRevisions a
-      logDSS ("pack " ++ show (length revs) ++ " revisions")
-      writeBS $ strToBs $ serialize (concatRevisions revs)
-
-showCreateNewDialog :: Handler App App ()
-showCreateNewDialog = renderWithSplices "main" [("templatescripts", openNewDialogSplice)]
+showCreateNewDialog :: AppHandler ()
+showCreateNewDialog = renderWithSplices "main" [("newdlg_script", openNewDialogSplice)]
   where
     openNewDialogSplice = scriptsSplice "static/js/newdlg/" "/static/js/"
   
+  
+liftMaybe :: (MonadPlus m) => Maybe a -> m a
+liftMaybe = maybe mzero return
 
-handleIndex :: Handler App App ()
-handleIndex = do
-  logDSS "HANDLE_INDEX"
-  msk <- with session $ getFromSession "sk"
-  case msk of
-    Nothing -> do
-      logDSS "new session"
+--ha van cookie és hozzáférhető akkor redirect oda,
+--egyébként töröljük a sütit és showcreate
+handleIndex :: AppHandler ()
+handleIndex = trace "HANDLE_INDEX" $ do
+  macc <- (with session $ getFromSession "sk") >>= maybe (return Nothing) (\sk -> tryAccessAsAuthor sk)
+  case macc of
+    Nothing  -> do
+      with session $ withSession session $ resetSession
       showCreateNewDialog
---      withSession sessionLens $ with sessionLens $ setInSession "id" "42"
-    Just sk -> do
-      logDSS ("saved session: " ++ T.unpack sk)
-      redirect . strToBs . T.unpack $ sk
-  --ifTop $ render "main"
-
-modifyIORef' :: IORef a -> (a -> a) -> IO ()
-modifyIORef' ref f = do
-  x <- readIORef ref
-  let x' = f x
-  x' `seq` writeIORef ref x'
+    Just acc -> redirect $ getAccessURI acc
+  return ()
 
 lbsToBs :: BL.ByteString -> B.ByteString
 lbsToBs = B.pack . BL.unpack
@@ -216,34 +189,40 @@ bsToLbs :: B.ByteString -> BL.ByteString
 bsToLbs = BL.pack . B.unpack
 
 
+handleCommand :: ByteString -> AppHandler ()
+handleCommand cmd = trace ("HANDLE_COMMAND "++ bsToStr cmd) $ do
+  case cmd of
+    "init"   -> handleInitialCheckout
+    "update" -> handleContentUpdate
+    "share"  -> handleShare
+
+traceParams = getParams >>= \params -> logDSS $ "params=" ++ show params
+
+  
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 -- | The application's routes.
 --todo: gyökérben menjen az opendocument
-routes :: [(ByteString, Handler App App ())]
+routes :: [(ByteString, AppHandler ())]
 routes = [ ("/", ifTop handleIndex)
-         , ("/:sk", ifTop handleOpen)
-         , ("/cmd/init", handleInitialCheckout)
-         , ("/cmd/update",  handleContentUpdate)
-         , ("/cmd/new", handleNew)
-         , ("/cmd/share", handleShare)         
+--         , ("/:sk/", ifTop handleOpen)
+         , ("/new", handleNew)
+         , ("/:sk/",ifTop $ (getParam "cmd" >>= \p -> maybe pass handleCommand p) <|> handleOpen <|> writeBS "no handler")
+         {-
+                                , ("/init", handleInitialCheckout)
+                                , ("/update",  handleContentUpdate)
+                                , ("/new", handleNew)
+                                , ("/share", handleShare)        
+                                -} 
          --, ("/", with heist heistServe)
          , ("/static/", rlogDSS "tryServeStatic" >> serveDirectory "static" >> rlogDSS "ok")
         -- , ("", rlogDSS "tryRest" >> handleIndex >> rlogDSS "tryRest")
          ]
 
-rlogDSS :: String -> Handler App App ()
+rlogDSS :: String -> AppHandler ()
 rlogDSS s = logDSS s
-{-
-p = do { r <- getRequest; logDSS ("rqURI:" ++ (bsToStr . rqURI) r) }
-c s = logDSS s >> writeBS (strToBs s)
---srv = ("", logDSS "serveDirectory" >> serveDirectory "static")
-t1 = ("/", rlogDSS "try1" >> ifTop (c "elso") >> rlogDSS "ok1")
-t2 = ("/:sk", rlogDSS "try2" >> ifTop (c "capture") >> rlogDSS "ok2")
-t3 = ("/", rlogDSS "try3" >> c "harmadik" >> rlogDSS "ok3")
-t4 = ("/", rlogDSS "try4" >> ifTop (c "negyedik") >> rlogDSS "ok4")
-t5 = ("/", rlogDSS "try5" >> c "otodik" >> rlogDSS "ok5")
-testroutes = [ t2, t1 ]--, t5,("", do { r <- getRequest; writeBS "not matched"; writeBS (rqURI r) }) ]
--}
 
 logHandlerStart = logDSSb '\n' "HANDLER STARTED"
 logHandlerFinished = logDSSa '\n' "HANDLER FINISHED"
@@ -252,13 +231,13 @@ logHandlerFinished = logDSSa '\n' "HANDLER FINISHED"
 -- | The application initializer.
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
-  wrapSite (\site -> logHandlerStart >> site >> logHandlerFinished)
+  wrapSite (\site -> logHandlerStart >> traceParams >> site >> logHandlerFinished)
   --h <- nestSnaplet "heist" heist $ heistInit "templates"
   h <- nestSnaplet "heist" heist $ heistInit' "templates" (mempty { hcLoadTimeSplices = defaultLoadTimeSplices })
   s <- nestSnaplet "sess" session $
          initCookieSessionManager "site_key.txt" "sess" (Just 3600)
   --rc <- nestSnaplet "revctrl" revLens $ revisionControlInit
-  dh <- nestSnaplet "dochost" docHostLens $ documentHostInit
+  dh <- nestSnaplet "dochost" docHost $ documentHostInit
   addRoutes routes
   return $ App h s dh
 

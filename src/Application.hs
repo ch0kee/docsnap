@@ -22,7 +22,7 @@ data App = App
     { _heist :: Snaplet (Heist App)
     , _session :: Snaplet SessionManager
     --, _revLens :: Snaplet (RevisionControl)
-    , _docHostLens :: Snaplet DocumentHost
+    , _docHost :: Snaplet DocumentHost
     }
 
 makeLenses ''App
@@ -31,8 +31,8 @@ instance HasHeist App where
   heistLens = subSnaplet heist
 
 instance HasDocumentHost (Handler b App) where
-  getDocumentHost = with docHostLens get
-  modifyDH f = with docHostLens (modify f)
+  getDocumentHost = with docHost get
+  modifyDH f = with docHost (modify f)
 
 
 --instance HasRevisionControl (Handler App App) where

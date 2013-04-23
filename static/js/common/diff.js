@@ -1,89 +1,64 @@
-// "[=14|+3:alm|-2]
 //edit script iterator
 function ESIterator (es) {
-  this._index = 1;
-  this._characterIndex = 0;
+  this._index = 0;
+  this._resetCharCounter();
   this._es = es;
 }
 
+ESIterator.prototype._resetCharCounter = function() {
+  this._charCounter = 1;
+}
+
 ESIterator.prototype.isEnd = function() {
-  return this._es[ this._index ] == ']';
-}
-
-ESIterator.prototype.count = function() {
-  return this.isEnd() ? null : parseInt( this._es.substr(this._index+1) );
-}
-
-ESIterator.prototype.type = function() {
-  return this.isEnd() ? null : this._es[ this._index ];
-}
-
-ESIterator.prototype.baseContent = function() {
-  var result = "";
-  /*var i = 0;
-  ++i;
-  for(var i = 0; i < this._es.length; ++i) {
-    if (this._es[i] != '+') {
-      result += this._es[ i ].value;
-    }
-  }*/
-  return result;
+  return this._index >= this._es.length;
 }
 
 ESIterator.prototype.inserting = function () {
-  return this.type() == '+';
+  return this._es[ this._index ].I !== undefined;
 }
 
 ESIterator.prototype.removing = function () {
-  return this.type() == '-';
+  return this._es[ this._index ].R !== undefined;
 }
 
 ESIterator.prototype.preserving = function () {
-  return this.type() == '=';
+  return this._es[ this._index ].P !== undefined;
 }
 
 ESIterator.prototype.value = function() {
+  //assert (this.inserting())
   if (this.inserting()) {
-    var start = this._es.indexOf(':', this._index+1);
-    if (start == -1) {
-      alert('invalid input');
-      return "";
-    }
-    var len = this.count();
-    var val = this._es.substr(start+1, len);
-    return val;
+    return this._es[ this._index ].I;
   } else {
-    alert('not inserting');
+    alert('error');
     return "";
   }
 }
 
 ESIterator.prototype.advance =  function () {
   if (this.isEnd()) {
-    alert('already isEnd()');
+    alert('error, already isEnd()');
     return;
   }
-
-  if (this.type() == '+' || this._characterIndex >= this.count()-1) {
-    //megkeressük a következő |-t vagy ]-t
-    var pat = /[|\]]/;
-    var str = this._es.substr(this._index);
-    var offset = str.search(pat);
-    if (offset == -1) {
-      alert('invalid input');
-      return;
-    }
-
-    if (str[offset] == ']') {
-      //nincs több input
-      this._index += offset;
-    } else {
-      //| után jön a köv. input
-      this._index += offset + 1;
-    }
-    this._characterIndex = 0;
+  
+  if (this.inserting()) {
+    ++this._index;
   } else {
-    ++this._characterIndex;
+    if (this.removing()) {
+      if (this._charCounter >= this._es[ this._index ].R) {
+        this._resetCharCounter();
+        ++this._index;
+      } else {
+        ++this._charCounter;
+      }
+    } else if (this.preserving()) {
+      if (this._charCounter >= this._es[ this._index ].P) {
+        this._resetCharCounter();
+        ++this._index;
+      } else {
+        ++this._charCounter;
+      }    
+    }
   }
 }
 
@@ -93,7 +68,6 @@ ESIterator.prototype.valid = function() {
 }
 
 
-// "[=14|+3:alm|-2]
 DiffEngine.prototype.executeES1 = function(content, ses) {
   var s = new ESIterator(ses);
 
@@ -116,7 +90,6 @@ DiffEngine.prototype.executeES1 = function(content, ses) {
   return result;
 }
 
-// "[=14|+3:alm|-2]
 //ses1-ben lévő insert előlrébb kerül be ugyanazon indexen!
 DiffEngine.prototype.executeES2 = function(content, ses1, ses2) {
 
@@ -187,6 +160,7 @@ DiffEngine.prototype._extractCommon = function(basePath, newString, oldString, d
 }
 
 // "[=14|+3:alm|-2]
+/*
 DiffEngine.prototype._fixify = function(editScript) {
   var value = "[";
   for(var i = 0; i < editScript.length; ++i) {
@@ -219,25 +193,63 @@ DiffEngine.prototype._fixify = function(editScript) {
   value += ']';
   return value;
 }
+*/
+
+//invariáns ?
+//returns : [ { I: "..." }, { P:24 }, { R:5 } ] style object
+DiffEngine.prototype._fixify = function(editScript) {
+  var result = [];
+  for(var i = 0; i < editScript.length; ++i) {
+    /*if (editScript[i].value.length == 0) {
+      continue;
+    }*/
+    var thisEdit = { };
+    
+    var value = "";
+    for(var j = 0; j < editScript[i].value.length; ++j) {
+      value += editScript[i].value[j];
+    }
+//    var value = editScript[i].value;//.join('');
+    switch(editScript[i].type) {
+      case '+':
+        thisEdit.I = value;
+        break;
+      case '-':
+        thisEdit.R = value.length;
+        break;
+      case '=':
+        thisEdit.P = value.length;
+        break;
+      default:
+        alert('error'); //!!!!!!
+        return null;
+    }
+    
+    result.push(thisEdit);
+  }
+  return result;
+}
+
 
 //get Shortest Edit Script
 DiffEngine.prototype.getShortestEditScript = function(oldString, newString) {
   if (newString === oldString) {
     return this._fixify( [this._createComponent(newString,'=')] );
   }
-  if (!newString) {
+  var newLen = newString.length,
+      oldLen = oldString.length;
+
+  if (newLen == 0) {
     console.log('no newString');
     return this._fixify( [this._createComponent(oldString,'-')] );
   }
-  if (!oldString) {
+  if (oldLen == 0) {
     console.log('no oldString');
     return this._fixify( [this._createComponent(newString,'+')] );
   }
   var bestPath = [{ x: -1, components: [] }];
   var bestPath_y = this._extractCommon(bestPath[0], newString, oldString, 0);
 
-  var newLen = newString.length,
-      oldLen = oldString.length;
   if (bestPath[0].x+1 >= newLen && bestPath_y+1 >= oldLen) {
     return this._fixify( bestPath[0].components );
   }

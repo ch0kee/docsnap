@@ -19,7 +19,9 @@
     <script src="/static/js/common/utils.js"> </script>
     <script src="/static/js/common/diff.js"> </script>
     <script src="/static/js/common/docsnap.js"> </script>
-    <templatescripts/>
+    <newdlg_script/>
+    <access_scripts/>
+    <sync_scripts/>
 <!--    <script src="/js/reader/docsnap-reader.js"> </script> -->
 <!--    <script src="/js/author/docsnap-author.js"> </script> -->
 <!--    <script src="/js/common/activatenewdlg.js"> </script> -->

@@ -61,3 +61,28 @@ function restoreSelection() {
     }, 1);
   }
 }
+
+
+// "<b>H</b>e&nbsp;<br>l" -->
+// ["<b>", "H", "</b>", "e", "&nbsp;", "<br>", "l"]
+function tokenize(data) {
+  var tokens = [];
+  var len = data.length;
+  var idx = 0;
+  var tokenizerRegex = new RegExp("<[^>]+>|&[a-z]+;|<\/[^>]+>", "g");
+  var res = null;
+  while ( (res = tokenizerRegex.exec(data)) ) {
+    //megelozo karakterek
+    for(var i = idx; i < res.index; ++i) {
+      tokens.push(data[i]);
+    }
+
+    tokens.push(res[0]);
+
+    idx = res.index + res[0].length;
+  }
+  for(var i = idx; i < len; ++i) {
+    tokens.push(data[i]);
+  }
+  return tokens;
+}
