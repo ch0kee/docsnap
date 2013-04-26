@@ -15,11 +15,9 @@ function  createSyncHelper(context, diffEngine) {
           sentChanges = [];
         }
         var sentRevision = { version:context.syncVersion, edits: sentChanges};
-        console.log('sending ' + JSON.stringify(sentRevision));
         return sentRevision;
       } else {
         var sentRevision = { version:context.syncVersion, edits: [] };
-        console.log('sending ' + JSON.stringify(sentRevision));
         return sentRevision;      
       }    
     },    
@@ -53,10 +51,10 @@ function  createSyncHelper(context, diffEngine) {
 
 
 $(document).ready(function() {
-
+  var normalizingInput = false;
   $("#editor").attr('contenteditable',true);
-  var boldApplier = rangy.createCssClassApplier("ds_bold");
-  var italicApplier = rangy.createCssClassApplier("ds_italic");
+  var boldApplier = rangy.createCssClassApplier("ds_bold", { applyToEditableOnly: true, normalize: true });
+  var italicApplier = rangy.createCssClassApplier("ds_italic", { applyToEditableOnly: true, normalize: true });
   
   $("#editor").on({
     //TAB must be handled here because keypress in
@@ -73,15 +71,25 @@ $(document).ready(function() {
     keypress: function(ev){
       var code = ev.keyCode || ev.which;
       //ENTER
-      if (code == 13) {
+/*      if (code == 13) {
         pasteHtmlAtSelection('<br>');
         modified = true;
         ev.preventDefault();
-      }
+      }*/
     },
 
     input: function() {
-      modified = true;
+//      if (!normalizingInput) {
+        modified = true;
+       // var normalized = $("#editor").html();
+ //       saveSelection();
+        //normalized = normalized.replace("<div>", "").replace("</div>", "");
+        //$("#editor").html(normalized);
+ //       restoreSelection();
+      //}
+      //security: ha valaki a normalizálást megkerüli, akkor
+      //pl. script tageket küldhet a többieknek
+      //a szervernek ki kell szűrnie ezeket a tageket!!!
     }
   });
 

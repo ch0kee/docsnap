@@ -1,6 +1,11 @@
 .editorinput {
+  word-wrap: normal;
+}
+
+.chatlog {
   word-wrap: break-word;
 }
+
 
 .ds_bold {
   font-weight: bold;
@@ -13,3 +18,5 @@
 .no-close .ui-dialog-titlebar-close {
   display: none
 }
+
+.ui-menu { position: absolute; width: 150px; overflow: visible; z-index: 3 !important; }

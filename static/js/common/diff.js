@@ -27,12 +27,7 @@ ESIterator.prototype.preserving = function () {
 
 ESIterator.prototype.value = function() {
   //assert (this.inserting())
-  if (this.inserting()) {
-    return this._es[ this._index ].I;
-  } else {
-    alert('error');
-    return "";
-  }
+  return this._es[ this._index ].I;
 }
 
 ESIterator.prototype.advance =  function () {
@@ -62,23 +57,17 @@ ESIterator.prototype.advance =  function () {
   }
 }
 
-
-ESIterator.prototype.valid = function() {
-  return !this.isEnd();
-}
-
-
 DiffEngine.prototype.executeES1 = function(content, ses) {
   var s = new ESIterator(ses);
 
   var result = "";
-  for(var i = 0; s.valid();) {
-    while (s.valid() && s.inserting()) {
+  for(var i = 0; !s.isEnd();) {
+    while (!s.isEnd() && s.inserting()) {
       result = result + s.value();
       s.advance();
     }
 
-    if (s.valid() && i < content.length) {
+    if (!s.isEnd() && i < content.length) {
       var keep = s.preserving();
       if (keep) {
         result += content[i];
@@ -97,18 +86,18 @@ DiffEngine.prototype.executeES2 = function(content, ses1, ses2) {
   var s2 = new ESIterator(ses2);
 
   var result = "";
-  for(var i = 0; s1.valid() || s2.valid();) {
+  for(var i = 0; !s1.isEnd() || !s2.isEnd();) {
     //bedaraljuk a fuggo inserteket
-    while (s1.valid() && s1.inserting()) {
+    while (!s1.isEnd() && s1.inserting()) {
       result = result + s1.value();
       s1.advance();
     }
-    while (s2.valid() && s2.inserting()) {
+    while (!s2.isEnd() && s2.inserting()) {
       result = result + s2.value();
       s2.advance();
     }
 
-    if (s1.valid() && s2.valid() && i < content.length) {
+    if (!s1.isEnd() && !s2.isEnd() && i < content.length) {
       var keep = s1.preserving() && s2.preserving();
       if (keep) {
         result += content[i];
@@ -159,57 +148,17 @@ DiffEngine.prototype._extractCommon = function(basePath, newString, oldString, d
   return y;
 }
 
-// "[=14|+3:alm|-2]
-/*
-DiffEngine.prototype._fixify = function(editScript) {
-  var value = "[";
-  for(var i = 0; i < editScript.length; ++i) {
-
-    if (editScript[i].value.length == 0) {
-      continue;
-    }
-
-
-    if (i > 0) {
-      value += '|';
-    }
-
-    value += editScript[i].type;
-//    value += editScript[i].value.length.toString();
-// editScript[i].value nem egy sztring, hanem sztringek listája
-    var len = 0;
-    for(var j = 0; j < editScript[i].value.length; ++j) {
-      len += editScript[i].value[j].length;
-    }
-    value += len.toString();     
-    if (editScript[i].type == '+') {
-      value += ':';
-//      value += editScript[i].value;
-      for(var j = 0; j < editScript[i].value.length; ++j) {
-        value += editScript[i].value[j];
-      }     
-    }
-  }
-  value += ']';
-  return value;
-}
-*/
-
 //invariáns ?
 //returns : [ { I: "..." }, { P:24 }, { R:5 } ] style object
 DiffEngine.prototype._fixify = function(editScript) {
   var result = [];
   for(var i = 0; i < editScript.length; ++i) {
-    /*if (editScript[i].value.length == 0) {
-      continue;
-    }*/
     var thisEdit = { };
     
     var value = "";
     for(var j = 0; j < editScript[i].value.length; ++j) {
       value += editScript[i].value[j];
     }
-//    var value = editScript[i].value;//.join('');
     switch(editScript[i].type) {
       case '+':
         thisEdit.I = value;

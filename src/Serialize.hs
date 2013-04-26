@@ -4,6 +4,7 @@
 
 module Serialize (
   parseRevision,
+  parseResponse,
   serialize
 ) where
 
@@ -21,11 +22,12 @@ import Data.Aeson.TH
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import Control.Monad (replicateM, mapM)
+import Debug.Trace
 -- [=14|+3:alm|-2]
 
 
-test = JRevision 10 [ I "proba", P 24, R 5]
-test2 = JRevision 10 []
+test = Revision 10 [ I "proba", P 24, R 5]
+test2 = Revision 10 []
 
 lbsToBs :: BL.ByteString -> B.ByteString
 lbsToBs = B.pack . BL.unpack
@@ -33,10 +35,14 @@ lbsToBs = B.pack . BL.unpack
 bsToLbs :: B.ByteString -> BL.ByteString
 bsToLbs = BL.pack . B.unpack
 
-$(deriveJSON id ''JPackedEdit)
-$(deriveJSON id ''JRevision)
 
+$(deriveJSON id ''PackedEdit)
+$(deriveJSON id ''Revision)
 
+-- $(deriveJSON id ''JChatMessage)
+$(deriveJSON (drop 5) ''Response)
+
+{-
 --egyelőre 
 toJPackedEdit :: PackedEdit -> JPackedEdit
 toJPackedEdit (Inserts s) = I $ T.pack s 
@@ -48,16 +54,19 @@ fromJPackedEdit (I s) = Inserts $ T.unpack s
 fromJPackedEdit (R n) = Removes n 
 fromJPackedEdit (P n) = Preserves n 
 
+-}
 
+serialize :: Response -> B.ByteString
+serialize = lbsToBs . A.encode 
 
-serialize :: Revision -> String
-serialize (Revision (es, v)) = T.unpack . decodeUtf8 . lbsToBs . A.encode $ JRevision v (map toJPackedEdit es)
-
+--serialize :: Revision -> String
+--serialize = T.unpack . decodeUtf8 . lbsToBs . A.encode 
 
 parseRevision :: B.ByteString -> Maybe Revision
-parseRevision = convert . A.decode . bsToLbs
-  where
-    convert Nothing = Nothing
-    convert (Just (JRevision v es)) = Just $ Revision (map fromJPackedEdit es, v) 
+parseRevision = A.decode . bsToLbs
 
+parseResponse :: B.ByteString -> Maybe Response
+parseResponse r = trace ("parseResponse:" ++ bsToStr r) $ A.decode . bsToLbs $ r
 
+bsToStr :: B.ByteString -> String
+bsToStr =  T.unpack . decodeUtf8

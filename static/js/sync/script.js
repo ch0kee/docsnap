@@ -1,49 +1,35 @@
 $(document).ready(function() {
 
-  function actualContent(newContent) {
-    if (actualContent.arguments.length == 0)
-      return $('#editor').html();
-    else
-      $('#editor').html(newContent);
-  }
-
-  //var diffEngine = new DiffEngine();
   var diffEngine = new DiffEngine();
   var context = {
     syncContent:  ""
   , syncVersion: 0
+  , syncSessionId: 0
   , getActualContent: function () { return $('#editor').html(); }
   };
-  //var syncContent = "";
-  //var currentRevision = 0; //0. revision is the empty content
-  var applyCommittedChanges = true; //alkalmazzuk-e a módosításokat külön,
-  var savedCaretPos = null;
-  var syncInterval = 500;
-  //vagy egyszerűen használjuk az elküldéskor érvényes tartalmat
-  //(false is the way to go)
-  
-  //local content
-  /*function  actualContent(newContent) {
-    if (actualContent.arguments.length == 0)
-      return $('#editor').html();
-    else
-      $('#editor').html(newContent);
-  }  */
-  
+
+  var syncInterval = 1000;
   var syncHelper = createSyncHelper(context, diffEngine);
   
   //synchronize
   function  synchronizeContent() {
     var updatePackage = syncHelper.createUpdatePackage();
+    console.log('session id = ' + context.syncSessionId);
+    var request = {sessionId: context.syncSessionId, revision: updatePackage};
+    console.log('sending: ' + JSON.stringify(request));
+
     $.ajax({
       type    : "POST",
       dataType: "json",
       cache   : false,
       data    : {
         cmd:  "update"
-      , args: JSON.stringify(updatePackage)
+      , args: JSON.stringify(request)
       },
-      success : function(revision) {
+      success : function(response) {
+        console.log('received ' + JSON.stringify(response));
+        var revision = response.revision;
+        context.syncSessionId = response.sessionId;
         var nochanges = revision.version == context.syncVersion;
         if (nochanges) {
           //assert: revision.edits.length == 0
@@ -56,10 +42,12 @@ $(document).ready(function() {
         
         var result = syncHelper.handleResponse(revision);
         if (result) {
-          actualContent(result);
+          $('#editor').html(result);
         }
         
         restoreSelection();
+        
+        console.log('session id = ' + context.syncSessionId);
         setTimeout(synchronizeContent, syncInterval);
       },
       error : function( xhr, status ) {
@@ -81,18 +69,20 @@ $(document).ready(function() {
         cmd: "init"
       , args: null
       },
-      success : function(revision) {
-        console.log("Kewl, we said hello!");
-        console.log(revision);
+      success : function(response) {
+        context.syncContent = "";
+        console.log(response);
+        
+        var revision = response.revision;
         var srvVersion = revision.version;
         context.syncContent = diffEngine.executeES1(context.syncContent, revision.edits);
         context.syncVersion = srvVersion;
-        actualContent(context.syncContent);
-
+        $('#editor').html(context.syncContent);
+        context.syncSessionId = response.sessionId;
         setTimeout(synchronizeContent, syncInterval);
       },
       error : function( xhr, status ) {
-        console.log("Sorry, there was a problem!");
+        console.log("** error during synchronization");
       },
       complete : function( xhr, status ) {
         //alert("The request is complete!");

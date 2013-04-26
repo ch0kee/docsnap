@@ -1,11 +1,14 @@
 
-//http://rangy.googlecode.com/svn/trunk/demos/core.html
+//@ getFirstRange
+//@ Visszaadja az első, összefüggő kiválasztást
+//@ (Pl. Firefox estén lehetséges több kijelölés)
 function getFirstRange() {
   var sel = rangy.getSelection();
   return sel.rangeCount ? sel.getRangeAt(0) : null;
 }
 
-
+//@ pasteElementAtSelection
+//@ HTML elem beszúrása a kiválasztás helyére
 function pasteElementAtSelection(tagname) {
   var range = getFirstRange();
   if (range) {
@@ -19,6 +22,8 @@ function pasteElementAtSelection(tagname) {
   }
 }
 
+//@ pasteHtmlAtSelection
+//@ HTML kód beszúrása a kiválasztás helyére
 function pasteHtmlAtSelection(html) {
   var range = getFirstRange();
   if (range) {
@@ -37,19 +42,21 @@ function pasteHtmlAtSelection(html) {
   }
 }
 
-//http://rangy.googlecode.com/svn/trunk/demos/saverestore.html
 var savedSel = null;
 var savedSelActiveElement = null;
 
+//@ saveSelection
+//@ Aktuális kiválasztás megjelölése
 function saveSelection() {
-  // Remove markers for previously saved selection
   if (savedSel) {
     rangy.removeMarkers(savedSel);
   }
   savedSel = rangy.saveSelection();
   savedSelActiveElement = document.activeElement;
 }
- 
+
+//@ restoreSelection
+//@ Megjelölt kiválasztás visszaállítása
 function restoreSelection() {
   if (savedSel) {
     rangy.restoreSelection(savedSel, true);
@@ -62,9 +69,11 @@ function restoreSelection() {
   }
 }
 
-
-// "<b>H</b>e&nbsp;<br>l" -->
-// ["<b>", "H", "</b>", "e", "&nbsp;", "<br>", "l"]
+//@ tokenize
+//@ 'data' - string : feldarabolandó szöveg
+//@ Tokenekre bontja a szöveget az összehasonításhoz.
+//@ returns: Olyan tömböt ad vissza, amelynek minden eleme
+//@ vagy egy karakter, vagy pedig egy html jelölőnyelvi elem.
 function tokenize(data) {
   var tokens = [];
   var len = data.length;

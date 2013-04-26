@@ -1,3 +1,4 @@
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8">
@@ -22,13 +23,14 @@
     <newdlg_script/>
     <access_scripts/>
     <sync_scripts/>
-<!--    <script src="/js/reader/docsnap-reader.js"> </script> -->
-<!--    <script src="/js/author/docsnap-author.js"> </script> -->
-<!--    <script src="/js/common/activatenewdlg.js"> </script> -->
   </head>
   <body spellcheck="false">
+    <ul id="sharemenu">
+      <li><div id="authorshare">with author rights</div></li>
+      <li><div id="readershare">with reader rights</div></li>
+    </ul>      
     <div class="ui-layout-north">
-      <div id="toolbar" class="ui-widget-header ui-corner-all" >
+      <div id="toolbar" class="ui-widget-header ui-corner-all" >    
         <span class="bigbuttons">  
           <div id="new">new</div>
           <div id="share">share</div>
@@ -47,8 +49,8 @@
       <div class="ui-state-default" style="padding: 3px; text-align: center;">
          Chat
       </div>
-      <div id="editor" class="editorinput ui-layout-content ui-widget-content" contenteditable="false"></div>
-      <input type="text" style="width:100%" class="ui-widget-content" name="chatInput" value=""><br>
+      <div id="chatlog" class="chatlog ui-layout-content ui-widget-content" contenteditable="false"></div>
+      <input id="chatfield" type="text" style="width:100%" class="ui-widget-content" name="chatInput" value=""><br>
     </div>
     <div class="ui-layout-south" style="padding: 0px">
       <div class="ui-state-default" style="padding: 3px; text-align: center;">
