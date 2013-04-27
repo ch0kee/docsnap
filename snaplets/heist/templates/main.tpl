@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
@@ -20,20 +20,23 @@
     <script src="/static/js/common/utils.js"> </script>
     <script src="/static/js/common/diff.js"> </script>
     <script src="/static/js/common/docsnap.js"> </script>
-    <newdlg_script/>
-    <access_scripts/>
-    <sync_scripts/>
+    <heistscripts/>
   </head>
   <body spellcheck="false">
     <ul id="sharemenu">
-      <li><div id="authorshare">with author rights</div></li>
-      <li><div id="readershare">with reader rights</div></li>
-    </ul>      
+      <li id="authorshare">with author</li>
+      <li id="readershare">with reader</li>
+    </ul>
+    <ul id="exportmenu">
+      <li id="exportastxt">plain text file</li>
+      <li id="readershare">html file</li>
+    </ul>
     <div class="ui-layout-north">
       <div id="toolbar" class="ui-widget-header ui-corner-all" >    
         <span class="bigbuttons">  
           <div id="new">new</div>
           <div id="share">share</div>
+          <div id="export">export</div>
         </span>
         <div id="bold">bold</div>
         <div id="italic">italic</div>

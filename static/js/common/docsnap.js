@@ -17,8 +17,10 @@ $(document).ready(function() {
       });
       return false;
     });
+  $("#export").button();
   $("#sharemenu").menu().hide();
   
+  $("#readershare").button();
   $("#readershare").click(function() {
       $.ajax({
       type    : "POST",
@@ -39,6 +41,28 @@ $(document).ready(function() {
       }
     });    
   });
+  $("#authorshare").button();
+  $("#readershare").click(function() {
+      $.ajax({
+      type    : "POST",
+      dataType: "html",
+      cache   : false,
+      data    : {
+        cmd: "share"
+      , args: "author"
+      },
+      success : function(revision) {
+        alert(revision);
+      },
+      error : function( xhr, status ) {
+        console.log("Sorry, there was a problem!");
+      },
+      complete : function( xhr, status ) {
+        //alert("The request is complete!");
+      }
+    });    
+  });
+
   
   $("#bold").button();
   $("#italic").button();

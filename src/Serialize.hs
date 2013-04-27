@@ -5,6 +5,7 @@
 module Serialize (
   parseRevision,
   parseResponse,
+  parseRequest,
   serialize
 ) where
 
@@ -39,8 +40,8 @@ bsToLbs = BL.pack . B.unpack
 $(deriveJSON id ''PackedEdit)
 $(deriveJSON id ''Revision)
 
--- $(deriveJSON id ''JChatMessage)
-$(deriveJSON (drop 5) ''Response)
+$(deriveJSON id ''ChatMessage)
+$(deriveJSON id ''Response)
 
 {-
 --egyelőre 
@@ -67,6 +68,9 @@ parseRevision = A.decode . bsToLbs
 
 parseResponse :: B.ByteString -> Maybe Response
 parseResponse r = trace ("parseResponse:" ++ bsToStr r) $ A.decode . bsToLbs $ r
+
+parseRequest :: B.ByteString -> Maybe Request
+parseRequest r = trace ("parseRequest:" ++ bsToStr r) $ A.decode . bsToLbs $ r
 
 bsToStr :: B.ByteString -> String
 bsToStr =  T.unpack . decodeUtf8

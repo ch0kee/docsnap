@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-} 
 
 module Internal.Types where
 
@@ -13,7 +14,9 @@ import Data.Data (Data)
 import Data.Typeable (Typeable)
 import qualified Data.Map as M
 import  Control.Monad.Trans
-import Control.Concurrent.MVar
+import Control.Concurrent.MVar.Strict
+
+import Control.DeepSeq
 
 type Content = String
 type Length = Int
@@ -43,15 +46,29 @@ type Version = Int
 --  deriving (Show)
 
 
-data JChatMessage = JChatMessage { sender :: String, message :: String }
+data ChatMessage = ChatMessage { sender :: String, message :: String }
   deriving (Show, Data, Typeable)
-data Response  = Response { sessionId :: SessionId, revision :: Revision}
+data Response = Response {
+  rspSessionId :: SessionId
+, rspRevision :: Revision
+, rspChatMessages :: [ChatMessage]
+, rspChatVersion :: Version
+}
   deriving (Show, Data, Typeable)
+  
+data Request = Request {
+  reqSessionId :: SessionId
+, reqRevision :: Revision
+, reqChatBuffer :: [String]
+, reqChatVersion :: Version
+} deriving (Show, Data, Typeable)
   
 data AccessRight = Author | Reader
   deriving (Eq)
   
-data InitialCheckout = InitialCheckout { content :: T.Text }
+instance NFData AccessRight 
+
+data InitialCheckout = InitialCheckout { initialContent :: T.Text }
   deriving (Data,Typeable,Show)
 
 type MDocument = MVar Document
@@ -60,6 +77,10 @@ type MShareMap = MVar ShareMap
 
 newtype DocumentAccess = DocumentAccess (AccessRight, MDocument)  
   deriving (Eq)
+
+instance NFData DocumentAccess 
+instance NFData (MVar Document)
+instance NFData Document
 
 data DocumentHost = DocumentHost {
   documents :: MVar [MDocument]
@@ -73,9 +94,12 @@ data Editor = Editor {
 , touched :: Bool
 }
 
+type ChatLog = [ChatMessage]
+
 data Document = Document {
   revisions :: [Revision]
 , editors :: [Editor]
+, chatLog :: [(Int, ChatMessage)]
 }
 
 type SharedKey = T.Text
@@ -86,4 +110,14 @@ class MonadIO m => HasDocumentHost m
     getDocumentHost :: m DocumentHost
     modifyDH :: (DocumentHost -> DocumentHost) -> m ()
     
+-- exporter
+class IExporter a
+  where
+    displayName :: a -> String
+    
+data TxtExporter = TxtExporter
+instance IExporter TxtExporter
+  where
+    displayName _ = "plain text file"
+
     

@@ -38,7 +38,12 @@ import Data.List (findIndex)
 --by using 'a' instead of 'MVar'
 import Internal.Types
 import Application --leginkább a doclens miatt
-import Control.Concurrent.MVar
+import Control.Concurrent.MVar.Strict
+
+
+clearDeadSessionTimeout = 3000000
+minSessionId = 0
+maxSessionId = 9999999
 
 logDSS :: (MonadIO m) => String -> m ()
 logDSS s = liftIO $ putStrLn ("** " ++ s)
@@ -62,7 +67,7 @@ tryAccessAs dh sk ar = liftIO $ do
 -- adott időközönként eldobja a nem frissített munkameneteket
 clearDeadSessions :: MVar [MDocument] -> IO ()
 clearDeadSessions mdocs = forever $ do
-  threadDelay 3000000
+  threadDelay clearDeadSessionTimeout
   putStrLn "clearing dead sessions..."
   docs <- readMVar mdocs
   forM_ docs clearDeadSessions'
@@ -78,7 +83,7 @@ clearDeadSessions mdocs = forever $ do
 documentHostInit :: SnapletInit b DocumentHost
 documentHostInit = makeSnaplet "dochost" "DocumentHost Snaplet" Nothing $ do
   (dm,sm) <- liftIO $ liftM2 (,) (newMVar []) (newMVar M.empty)
-  liftIO . forkIO $ clearDeadSessions dm    
+  --liftIO . forkIO $ clearDeadSessions dm    
   return $ DocumentHost dm sm
 
 --véletlenszerű megosztókulcsok generálása  
@@ -88,7 +93,7 @@ generateSharedKeys g = map (T.pack . UUID.toString) (randoms g :: [UUID])
 
 --véletlenszerű munkamenet azonosítók generálása
 generateSessionIds :: RandomGen g => g -> [SessionId]
-generateSessionIds = randomRs (0,2048)
+generateSessionIds = randomRs (minSessionId,maxSessionId)
 
 --új résztvevő hozzáadása
 addNewEditor :: MonadIO m => MDocument -> m (SessionId)
@@ -98,7 +103,7 @@ addNewEditor mdoc = liftIO $ do
   doc <- takeMVar mdoc
   let docSids = map sessId $ editors doc 
   let (sid:_) = until (\(x:_) -> x `notElem` docSids) tail randomSids
-  putMVar mdoc $ doc { editors=editors doc ++ [Editor{sessId=sid,name="",touched=True}] }
+  putMVar mdoc $ doc { editors=editors doc ++ [Editor{sessId=sid,touched=True}] }
   return sid
       
 --visszaadja azt a listát, amiben a p predikátumot teljesítő
@@ -142,7 +147,7 @@ touchEditor mdoc oldSid = liftIO $ do
       
       
 emptyDocument :: Document
-emptyDocument = Document {revisions=[], editors=[]}
+emptyDocument = Document {revisions=[], editors=[], chatLog=[]}
 
 --dokumentum létrehozása és megosztása
 createDocument :: MonadIO m => DocumentHost -> m (MDocument)
@@ -160,8 +165,8 @@ shareDocument dh dacc = liftIO $ trace "sharing ..." $ do
   --putMVar (shares dh) $ updatedMap ar doc shareMap
   gen <- newStdGen
   let (newShareMap, sk) = case locateMapKey dacc shareMap of
-                            Just oldSk -> (shareMap, oldSk)  --már meg van osztva
-                            Nothing -> insertNewShare dacc shareMap (generateSharedKeys gen)
+        Just oldSk -> (shareMap, oldSk)  --már meg van osztva
+        Nothing -> insertNewShare dacc shareMap (generateSharedKeys gen)
   putMVar (shares dh) newShareMap
   trace ("shared as " ++ T.unpack sk) $ return () 
   return sk
@@ -199,58 +204,52 @@ appendRevision r mdoc = do
 
 --egymas utan kovetkezo reviziok osszefuzese egybe
 --a.k.a. sequentialMerge
-concatRevisions :: [Revision] -> Maybe Revision
-concatRevisions [] = Nothing
-concatRevisions (r:[]) = Just r
-concatRevisions revs = Just $ concatRevisions' revs
+seqMergeRevisions :: [Revision] -> Maybe Revision
+seqMergeRevisions [] = Nothing
+seqMergeRevisions [r] = Just r
+seqMergeRevisions revs = Just $ Revision {
+        version=(version . last) revs
+      , edits=packEdit . foldl seqMergeEdits [] . map (unpackEdit . edits) $ revs
+    }
   where
-    concatRevisions' [r] = r
-    concatRevisions' (Revision v1 es1: Revision v2 es2:rest) = concatRevisions' (Revision v2 (packEdit $ concatES upes1 upes2):rest)
-      where
-        upes1 = unpackEdit es1
-        upes2 = unpackEdit es2
-        
-        concatES :: [SingleEdit] -> [SingleEdit] -> [SingleEdit]
-        concatES (SP:ls) (SP:rs) = SP:concatES ls rs
-        concatES (SP:ls) (SR:rs) = (SR:concatES ls rs)
-        concatES l@(SP:ls) (SI c:rs) = (SI c:concatES l rs)
+    seqMergeEdits :: [SingleEdit] -> [SingleEdit] -> [SingleEdit]
+    seqMergeEdits (SP:ls) (SP:rs) = SP:seqMergeEdits ls rs
+    seqMergeEdits (SP:ls) (SR:rs) = (SR:seqMergeEdits ls rs)
+    seqMergeEdits l@(SP:ls) (SI c:rs) = (SI c:seqMergeEdits l rs)
 
-        concatES (SR:ls) r = (SR:concatES ls r)
+    seqMergeEdits (SR:ls) r = (SR:seqMergeEdits ls r)
 
-        concatES (SI c:ls) (SP:rs) = (SI c:concatES ls rs)
-        concatES (SI c:ls) (SR:rs) = concatES ls rs
-        concatES l@(SI _:ls) (SI c:rs) = (SI c:concatES l rs)
-        concatES [] r = r
+    seqMergeEdits (SI c:ls) (SP:rs) = (SI c:seqMergeEdits ls rs)
+    seqMergeEdits (SI c:ls) (SR:rs) = seqMergeEdits ls rs
+    seqMergeEdits l@(SI _:ls) (SI c:rs) = (SI c:seqMergeEdits l rs)
+    seqMergeEdits [] r = r
 
-        unpackEdit :: [PackedEdit] -> [SingleEdit]
-        unpackEdit (R 0:rest) = unpackEdit rest 
-        unpackEdit (R n:rest) = SR: unpackEdit (R (n-1):rest)
-        unpackEdit (P 0:rest) = unpackEdit rest 
-        unpackEdit (P n:rest) = SP: unpackEdit (P (n-1):rest)
-        unpackEdit (I "":rest) = unpackEdit rest 
-        unpackEdit (I (c:str):rest) = SI c: unpackEdit (I str:rest)
-        unpackEdit [] = []
-        
-        packEdit :: [SingleEdit] -> [PackedEdit]
-        packEdit es = snd $ packEdit' (es, [])
-        packEdit' (SR:ur, R n:pr) = packEdit' (ur, R (n+1):pr)
-        packEdit' (SR:ur, p) = packEdit' (ur, R 1:p)
-        
-        packEdit' (SP:ur, P n:pr) = packEdit' (ur, P (n+1):pr)
-        packEdit' (SP:ur, p) = packEdit' (ur, P 1:p)
-        
-        packEdit' (SI c:ur, I s:pr) = packEdit' (ur, I (s++[c]):pr)
-        packEdit' (SI c:ur, p) = packEdit' (ur, I (c:[]):p)  
-        
-        packEdit' ([], p) = ([], p)
+    unpackEdit :: [PackedEdit] -> [SingleEdit]
+    unpackEdit (R 0:rest) = unpackEdit rest 
+    unpackEdit (R n:rest) = SR: unpackEdit (R (n-1):rest)
+    unpackEdit (P 0:rest) = unpackEdit rest 
+    unpackEdit (P n:rest) = SP: unpackEdit (P (n-1):rest)
+    unpackEdit (I "":rest) = unpackEdit rest 
+    unpackEdit (I (c:str):rest) = SI c: unpackEdit (I str:rest)
+    unpackEdit [] = []
+    
+    packEdit :: [SingleEdit] -> [PackedEdit]
+    packEdit es = snd $ packEdit' (es, [])
+    packEdit' (SR:ur, R n:pr) = packEdit' (ur, R (n+1):pr)
+    packEdit' (SR:ur, p) = packEdit' (ur, R 1:p)
+    
+    packEdit' (SP:ur, P n:pr) = packEdit' (ur, P (n+1):pr)
+    packEdit' (SP:ur, p) = packEdit' (ur, P 1:p)
+    
+    packEdit' (SI c:ur, I s:pr) = packEdit' (ur, I (s++[c]):pr)
+    packEdit' (SI c:ur, p) = packEdit' (ur, I (c:[]):p)  
+    
+    packEdit' ([], p) = ([], p)
       
 
 latestVersion :: [Revision] -> Version
 latestVersion [] = 0
 latestVersion rs = version (last rs)
-
-nextVersion :: [Revision] -> Version
-nextVersion = (+1) . latestVersion
 
 --változások adott verzió után
 after :: Version -> [Revision] -> [Revision]
@@ -268,13 +267,13 @@ commit mdoc rev = do
       commit' :: MonadIO m => Revision -> [Revision] -> m Revision
       --checkout only todo:v == latestversion
       commit' (Revision v []) revs = do
-        let retRev = concatRevisions $ after v revs
+        let retRev = seqMergeRevisions $ after v revs
         return $ maybe (Revision v []) id retRev  
       commit' r@(Revision v es) revs
         | latestVersion revs == v = do --can commit
             appendRevision (Revision (v+1) es) mdoc
             return $ Revision (v+1) []
         | otherwise = do --can not commit
-          let retRev = concatRevisions $ after v revs  --ha ez Nothing, az hiba
+          let retRev = seqMergeRevisions $ after v revs  --ha ez Nothing, az hiba
           return $ maybe (Revision v []) id retRev
 

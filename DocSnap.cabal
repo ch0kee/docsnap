@@ -24,7 +24,7 @@ executable DocSnap
                    text >=0.11 && <0.12, time >=1.1 && <1.5, xmlhtml >=0.1 && <0.3,
                    data-lens -any, comonad-transformers -any, aeson -any,
                    containers -any, parsec -any, stm, uuid, MonadRandom,
-                   transformers
+                   transformers, strict-concurrency, deepseq
 
     if flag(development)
         build-depends: snap-loader-dynamic ==0.10.*

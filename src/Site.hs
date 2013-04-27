@@ -52,6 +52,9 @@ import Snap.Extras.SpliceUtils
 import Debug.Trace
 import Data.Monoid (mempty)
 import Control.Monad.Trans.Maybe --del
+import Control.Concurrent.MVar.Strict
+
+sharePrefix = "http://localhost:8000/"
 
 
 --data Insert = Insert { index :: Int, content :: String }
@@ -67,8 +70,6 @@ strToBs =  encodeUtf8 . T.pack
 logDSSb c s = liftIO $ putStrLn (c:"** " ++ s)
 logDSSa c s = liftIO $ putStrLn ("** " ++ s ++ [c])
 
-sharePrefix = "http://localhost:8000/"
-
 
 --accessAsAuthor: megprobalja elerni a doksit a sütin és
 --az url-en keresztül, ha nem megy megszakad az aktuális kezelő
@@ -81,28 +82,23 @@ getSharedKey = do { msk <- getParam "sk"; return $ msk >>= Just . decodeUtf8 }
 maybeDenied ::  (a -> AppHandler b) -> Maybe a -> AppHandler b
 maybeDenied = maybe (redirect "/")
 
-{-
-accessAsAuthor :: AppHandler AuthorAccess
-accessAsAuthor = accessAs Author -- getSharedKey >>= maybeDenied (\sk -> tryAccessAsAuthor sk >>= maybeDenied return)
-
-accessAsReader :: AppHandler ReaderAccess
-accessAsReader = accessAs Reader -- getSharedKey >>= maybeDenied (\sk -> tryAccessAsReader sk >>= maybeDenied return)
-accessAs :: (IAccessRight r) => r -> AppHandler (DocumentAccess r)
-accessAs r = getSharedKey >>= maybeDenied (\sk -> tryAccessAs r sk >>= maybeDenied return)
--}
-
 accessAs :: DocumentHost -> AccessRight -> AppHandler (MDocument)
 accessAs dh r = getSharedKey >>= maybeDenied (\sk -> tryAccessAs dh sk r >>= maybeDenied return)
 
-{-
-touchSession :: MonadIO m => MDocument -> m SessionId
-touchSession mdoc = liftIO $ do
-  doc <- takeMVar mdoc
-  
-  putMVar mdoc
- -}
- 
- 
+--chat üzenet küldése
+sendChatMessage :: Document -> ChatMessage -> Document
+sendChatMessage doc msg = doc {chatLog=withMessage msg (chatLog doc) }
+  where
+    withMessage msg [] = [(0, msg)]
+    withMessage msg l@((nr,_):_) = (nr+1, msg):l
+    
+--chat üzenetek fogadása adott verziótól kezdve
+receiveChatMessages :: Document -> Version -> (Version,[ChatMessage])
+receiveChatMessages doc v = receiveChatMessages' $ takeWhile ((>v)  . fst) $ chatLog doc
+  where
+    receiveChatMessages' [] = (v, [])
+    receiveChatMessages' l@(x:_) = (fst x, map snd l)
+
 -- Lekezeljuk az uj adatot
 handleContentUpdate :: AppHandler ()
 handleContentUpdate = trace "HANDLE_CONTENT_UPDATE" $ do
@@ -112,17 +108,24 @@ handleContentUpdate = trace "HANDLE_CONTENT_UPDATE" $ do
   where
     handleCommit :: MDocument -> B.ByteString -> AppHandler ()
     handleCommit mdoc cdata = do
-      case parseResponse cdata of
+      case parseRequest cdata of
         Nothing -> trace "bad request data" $ error "bad request data"
-        Just (Response sid rev)  -> do
+        Just (Request sid rev chatBuffer chatVersion)  -> do
           --touch session
           maybeNewSessionId <- trace "touchEditor" $ touchEditor mdoc sid
+          doc <- liftIO $ takeMVar mdoc
+          let authorName = "unnamed"
+          let doc' = foldl sendChatMessage doc $ map (ChatMessage authorName) chatBuffer
+          logDSS ("chat messages : " ++ show (chatLog doc'))
+          let (newChatVersion,newChatMessages) = receiveChatMessages doc' chatVersion         
+          liftIO $ putMVar mdoc doc'
           case maybeNewSessionId of
             Nothing     -> trace "invalid session" $ error "invalid session"
             Just newSid -> do
               rev <- commit mdoc rev
-              let response = Response newSid rev
-              logDSS "*** NOW SENDING ***"
+              let response = Response newSid rev newChatMessages newChatVersion
+              logDSS "*** NOW SENDING ***"            
+              logDSS ("sending " ++ bsToStr (serialize response)) 
               writeBS $ serialize response
               logDSS "*** SENT ***"
       
@@ -140,8 +143,7 @@ handleOpen = trace "HANDLE_OPEN" $ do
     where
       storeSession sk = with session $ do {resetSession ; setInSession "sk" sk; commitSession}
       loadExistingDocument = renderWithSplices "main"
-        [ ("access_scripts", authorSplice )
-        , ("sync_scripts", syncSplice) ]
+        [ ("heistscripts", liftM2 (++) syncSplice authorSplice )]
       authorSplice = scriptsSplice "static/js/author/" "/static/js/"
       syncSplice = scriptsSplice "static/js/sync/" "/static/js/"
 
@@ -156,40 +158,36 @@ handleNew = trace "HANDLE_NEW" $ do
   redirect $ getAccessURI sk
 
 handleShare :: AppHandler ()
-handleShare = undefined
-{- trace "HANDLE_SHARE" $ do
+handleShare = trace "HANDLE_SHARE" $ do
   shareType <- getParam "args"
   case shareType of
     Just "reader" -> handleReaderShare
-    Just "author" -> handleAuthorShare
+    Just "author" -> handleReaderShare -- handleAuthorShare
     _ -> return ()
-  writeBS $ "http://oops"
 
 handleReaderShare :: AppHandler ()
 handleReaderShare = trace "HANDLE_READER_SHARE" $ do
-  readerAccess <- accessAsReader
-  return ()
+  dh <- getDocumentHost
+  doc <- accessAs dh Author
+  sk <- shareDocument dh $ DocumentAccess (Reader, doc)
+  writeBS $ strToBs $ sharePrefix ++ T.unpack sk
+  --return ()
 
-handleAuthorShare :: AppHandler ()
-handleAuthorShare = trace "HANDLE_READER_SHARE" $ do
-  readerAccess <- accessAsAuthor
-  return ()
--}
 
 handleInitialCheckout :: AppHandler ()
 handleInitialCheckout = trace "HANDLE_INITIAL_CHECKOUT_" $ do
   dh <- getDocumentHost
   doc <- accessAs dh Author
   revs <- getRevisions doc
-  let curRev = maybe (Revision 0 []) id $ concatRevisions revs
+  let curRev = maybe (Revision 0 []) id $ seqMergeRevisions revs
   logDSS $ show curRev  
   sid <- addNewEditor doc 
-  writeBS $ serialize $ Response sid curRev
+  writeBS $ serialize $ Response sid curRev [] (-1)
   logDSS "initial checkout handled"
    
 
 showCreateNewDialog :: AppHandler ()
-showCreateNewDialog = renderWithSplices "main" [("newdlg_script", openNewDialogSplice)]
+showCreateNewDialog = renderWithSplices "main" [("heistscripts", openNewDialogSplice)]
   where
     openNewDialogSplice = scriptsSplice "static/js/newdlg/" "/static/js/"
   

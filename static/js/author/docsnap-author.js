@@ -1,25 +1,16 @@
-
-var modified = false;
-
 function  createSyncHelper(context, diffEngine) {
   var sentChanges = []; //data hiding
   var sentContent = "";
   return {
     createUpdatePackage: function() {      
-      if (modified) {
-        modified = false;
-        sentContent = context.getActualContent();
-        sentChanges = diffEngine.getShortestEditScript(tokenize(context.syncContent), tokenize(sentContent) );
-        //üres listát küldjünk, ha nem változott semmi
-        if (sentChanges.length == 1 && sentChanges[0].P !== undefined) {
-          sentChanges = [];
-        }
-        var sentRevision = { version:context.syncVersion, edits: sentChanges};
-        return sentRevision;
-      } else {
-        var sentRevision = { version:context.syncVersion, edits: [] };
-        return sentRevision;      
-      }    
+      sentContent = context.getActualContent();
+      sentChanges = diffEngine.getShortestEditScript(tokenize(context.syncContent), tokenize(sentContent) );
+      //üres listát küldjünk, ha nem változott semmi
+      if (sentChanges.length == 1 && sentChanges[0].P !== undefined) {
+        sentChanges = [];
+      }
+      var sentRevision = { version:context.syncVersion, edits: sentChanges};
+      return sentRevision;
     },    
     handleResponse: function(revision) {  
       var srvVersion = revision.version;
@@ -79,17 +70,6 @@ $(document).ready(function() {
     },
 
     input: function() {
-//      if (!normalizingInput) {
-        modified = true;
-       // var normalized = $("#editor").html();
- //       saveSelection();
-        //normalized = normalized.replace("<div>", "").replace("</div>", "");
-        //$("#editor").html(normalized);
- //       restoreSelection();
-      //}
-      //security: ha valaki a normalizálást megkerüli, akkor
-      //pl. script tageket küldhet a többieknek
-      //a szervernek ki kell szűrnie ezeket a tageket!!!
     }
   });
 

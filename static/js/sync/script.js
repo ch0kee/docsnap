@@ -5,6 +5,8 @@ $(document).ready(function() {
     syncContent:  ""
   , syncVersion: 0
   , syncSessionId: 0
+  , syncChatBuffer: []
+  , syncChatVersion: -1
   , getActualContent: function () { return $('#editor').html(); }
   };
 
@@ -14,10 +16,15 @@ $(document).ready(function() {
   //synchronize
   function  synchronizeContent() {
     var updatePackage = syncHelper.createUpdatePackage();
-    console.log('session id = ' + context.syncSessionId);
-    var request = {sessionId: context.syncSessionId, revision: updatePackage};
-    console.log('sending: ' + JSON.stringify(request));
-
+    console.log('synchronizeContent()::sessionId = ' + context.syncSessionId);
+    var request = {
+      reqSessionId: context.syncSessionId
+    , reqRevision: updatePackage
+    , reqChatBuffer: context.syncChatBuffer
+    , reqChatVersion: context.syncChatVersion
+    };
+    console.log('synchronizeContent()::sending: ' + JSON.stringify(request));
+    context.syncChatBuffer = [];
     $.ajax({
       type    : "POST",
       dataType: "json",
@@ -27,10 +34,14 @@ $(document).ready(function() {
       , args: JSON.stringify(request)
       },
       success : function(response) {
-        console.log('received ' + JSON.stringify(response));
-        var revision = response.revision;
-        context.syncSessionId = response.sessionId;
+        console.log('synchronizeContent()::received ' + JSON.stringify(response));
+        var revision = response.rspRevision;
+        context.syncSessionId = response.rspSessionId;
+        context.syncChatVersion = response.rspChatVersion;
+        console.log('synchronizeContent()::context ' + JSON.stringify(context));
+        showChatMessages(response.rspChatMessages);
         var nochanges = revision.version == context.syncVersion;
+        
         if (nochanges) {
           //assert: revision.edits.length == 0
           setTimeout(synchronizeContent, syncInterval);
@@ -47,7 +58,8 @@ $(document).ready(function() {
         
         restoreSelection();
         
-        console.log('session id = ' + context.syncSessionId);
+        
+
         setTimeout(synchronizeContent, syncInterval);
       },
       error : function( xhr, status ) {
@@ -55,8 +67,25 @@ $(document).ready(function() {
       },
       complete : function( xhr, status ) {
         //alert("The request is complete!");
+
       }
     });
+  }
+  
+  
+  $("#chatfield").keypress(function(e) {
+    if (e.which == 13) {
+      console.log('chat: '+$("#chatfield").val());
+      context.syncChatBuffer.push($("#chatfield").val());
+      $("#chatfield").val('');
+      return false; 
+    }
+  });
+  
+  function  showChatMessages(msgs) {
+    for(var i = msgs.length-1; i >= 0; --i) {
+      $('#chatlog').append('<div>'+msgs[i].sender+': '+msgs[i].message+'</div>');
+    }
   }
   
   function  initialCheckout() {
@@ -71,14 +100,17 @@ $(document).ready(function() {
       },
       success : function(response) {
         context.syncContent = "";
-        console.log(response);
+        console.log('initialCheckout()::received ' + JSON.stringify(response));
         
-        var revision = response.revision;
+        var revision = response.rspRevision;
         var srvVersion = revision.version;
         context.syncContent = diffEngine.executeES1(context.syncContent, revision.edits);
         context.syncVersion = srvVersion;
+        context.syncChatVersion = response.rspChatVersion;
+        showChatMessages(response.rspChatMessages);
         $('#editor').html(context.syncContent);
-        context.syncSessionId = response.sessionId;
+        context.syncSessionId = response.rspSessionId;
+        console.log('initialCheckout()::context ' + JSON.stringify(context));
         setTimeout(synchronizeContent, syncInterval);
       },
       error : function( xhr, status ) {
