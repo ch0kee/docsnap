@@ -140,6 +140,7 @@ $(document).ready(function() {
 		,	east__fxSpeed_open: 300
 		,	east__fxSpeed_close: 300
 		,	stateManagement__enabled: true
+		, enableCursorHotkey: false
 		,	showDebugMessages: false
   });
 

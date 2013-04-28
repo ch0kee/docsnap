@@ -64,6 +64,7 @@ import System.Directory
 import qualified Text.XmlHtml as H  --scriptSplice
 sharePrefix = "http://localhost:8000/"
 
+urlOnSite s = sharePrefix ++ s
 
 --data Insert = Insert { index :: Int, content :: String }
 --  deriving (Show)
@@ -144,14 +145,38 @@ handleContentUpdate = trace "HANDLE_CONTENT_UPDATE" $ do
 handleOpen :: AppHandler ()
 handleOpen = trace "HANDLE_OPEN" $ do
     dh <- getDocumentHost
-    logDSS "trying to access"
-    doc <- accessAs dh Author
-    loadExistingDocument
-    getSharedKey >>= \sk -> maybeDenied storeSession sk
+    maybeSharedKey <- getSharedKey
+    case maybeSharedKey of
+      Nothing -> notFoundDialog ""
+      Just sk -> do
+        maybeDoc <- tryAccessAs dh sk Author
+        case maybeDoc of
+          Nothing -> notFoundDialog $ T.unpack sk
+          Just doc -> loadExistingDocument
   where
+    notFoundDialog sk = renderErrorDialog
+      ("The following document doesn't exist:\\n" ++ urlOnSite sk) "ok"
     storeSession sk = with session $ do {resetSession ; setInSession "sk" sk; commitSession}
     loadExistingDocument = renderWithSplices "main" [ ("heistscripts", scripts ) ]
     scripts = javascriptsSplice "/static/js/" ["sync/script", "author/docsnap-author"]
+
+renderErrorDialog content button = renderDialog content button "/"
+
+renderDialog content button target = renderWithSplices "main"
+    [ ("heistscripts", liftM2 (++) (vardeclSplice content button target) dialogSplice)]
+  where
+    dialogSplice = javascriptsSplice "/static/js/" ["dialog"]
+    vardeclSplice content button target = return $ [ H.Element "script" []
+      [ H.TextNode $ T.pack $ concat
+        [ "var __dlgContent=\""
+        , content
+        ,"\",__dlgButton=\""
+        , button
+        , "\",__dlgTarget=\""
+        , target
+        , "\";"
+        ]
+      ] ]
 
 javascriptsSplice :: MonadIO m => String -> [FilePath] -> m [H.Node]
 javascriptsSplice prefix scripts = return $ map (includeJS prefix) scripts 
@@ -263,18 +288,18 @@ showCreateNewDialog = renderWithSplices "main" [("heistscripts", openNewDialogSp
 --egyébként töröljük a sütit és showcreate
 handleIndex :: AppHandler ()
 handleIndex = trace "HANDLE_INDEX" $ do
-    dh <- getDocumentHost
-    savedSk <- with session $ getFromSession "sk"
-    case savedSk of
-      Nothing -> createNewSession
-      Just sk -> do
-        macc <- tryAccessAs dh sk Author
-        case macc of
-          Just _  -> redirect $ getAccessURI sk --létező dokumentum
-          Nothing -> createNewSession
+    --dh <- getDocumentHost
+    --savedSk <- with session $ getFromSession "sk"
+    --case savedSk of
+    createNewSession
+    --  Just sk -> do
+    --    macc <- tryAccessAs dh sk Author
+    --    case macc of
+    --      Just _  -> redirect $ getAccessURI sk --létező dokumentum
+    --      Nothing -> createNewSession
   where
     createNewSession = do
-      with session $ withSession session $ resetSession
+      --with session $ withSession session $ resetSession
       showCreateNewDialog
   
 
