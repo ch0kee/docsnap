@@ -5,6 +5,9 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-} 
+{-# LANGUAGE ExistentialQuantification #-}
+
+
 
 module Internal.Types where
 
@@ -17,6 +20,7 @@ import  Control.Monad.Trans
 import Control.Concurrent.MVar.Strict
 
 import Control.DeepSeq
+import Exporter
 
 type Content = String
 type Length = Int
@@ -110,14 +114,19 @@ class MonadIO m => HasDocumentHost m
     getDocumentHost :: m DocumentHost
     modifyDH :: (DocumentHost -> DocumentHost) -> m ()
     
--- exporter
-class IExporter a
+
+
+
+data HtmlFormat = HtmlFormat
+instance ExportableFormat HtmlFormat
   where
-    displayName :: a -> String
-    
-data TxtExporter = TxtExporter
-instance IExporter TxtExporter
-  where
-    displayName _ = "plain text file"
+    displayName = const "html file"
+    convert _ = id
+
+--data Exporter = forall a. ExportableFormat a => Exporter a
+
+
+
+
 
     

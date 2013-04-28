@@ -1,3 +1,5 @@
+
+
 $(document).ready(function() {
   $('body').prepend('<div id="newdialog" title="DocSnap"></div>');
   $( "#newdialog" ).dialog({

@@ -24,7 +24,7 @@ executable DocSnap
                    text >=0.11 && <0.12, time >=1.1 && <1.5, xmlhtml >=0.1 && <0.3,
                    data-lens -any, comonad-transformers -any, aeson -any,
                    containers -any, parsec -any, stm, uuid, MonadRandom,
-                   transformers, strict-concurrency, deepseq
+                   transformers, strict-concurrency, deepseq, filepath, tagsoup, directory
 
     if flag(development)
         build-depends: snap-loader-dynamic ==0.10.*
@@ -43,4 +43,4 @@ executable DocSnap
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Serialize DocSnapServer Internal.Types
+    other-modules: Serialize DocSnapServer Internal.Types Exporter

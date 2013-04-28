@@ -3,7 +3,6 @@
   <head>
     <meta charset="utf-8">
     <title>DocSnap Multi-User Document Editor</title>
-
     <link rel="stylesheet" type="text/css" href="/static/css/screen.css"/>
     <link rel="stylesheet" type="text/css" href="/static/css/styles.css"/>
     <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css" />
@@ -27,10 +26,7 @@
       <li id="authorshare">with author</li>
       <li id="readershare">with reader</li>
     </ul>
-    <ul id="exportmenu">
-      <li id="exportastxt">plain text file</li>
-      <li id="readershare">html file</li>
-    </ul>
+    <exporters/>
     <div class="ui-layout-north">
       <div id="toolbar" class="ui-widget-header ui-corner-all" >    
         <span class="bigbuttons">  

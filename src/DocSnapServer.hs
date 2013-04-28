@@ -202,8 +202,15 @@ appendRevision r mdoc = do
   logDSS "revision appended"
 
 
---egymas utan kovetkezo reviziok osszefuzese egybe
---a.k.a. sequentialMerge
+compatible :: [PackedEdit] -> [PackedEdit] -> Bool
+compatible = undefined -- True
+
+sequentialMerge :: [SingleEdit] -> [SingleEdit] -> [SingleEdit]
+sequentialMerge = undefined --seqMergeEdits
+      
+parallelMerge :: (Revision, Revision) -> (Revision, Revision)
+parallelMerge (Revision v1 e1, Revision v2 e2) = undefined
+
 seqMergeRevisions :: [Revision] -> Maybe Revision
 seqMergeRevisions [] = Nothing
 seqMergeRevisions [r] = Just r
@@ -212,16 +219,19 @@ seqMergeRevisions revs = Just $ Revision {
       , edits=packEdit . foldl seqMergeEdits [] . map (unpackEdit . edits) $ revs
     }
   where
-    seqMergeEdits :: [SingleEdit] -> [SingleEdit] -> [SingleEdit]
-    seqMergeEdits (SP:ls) (SP:rs) = SP:seqMergeEdits ls rs
-    seqMergeEdits (SP:ls) (SR:rs) = (SR:seqMergeEdits ls rs)
-    seqMergeEdits l@(SP:ls) (SI c:rs) = (SI c:seqMergeEdits l rs)
+--    seqMergePEdits :: [PackedEdit] -> [PackedEdit] -> [PackedEdit] 
 
+    seqMergeEdits :: [SingleEdit] -> [SingleEdit] -> [SingleEdit]
     seqMergeEdits (SR:ls) r = (SR:seqMergeEdits ls r)
+    seqMergeEdits l (SI c:rs) = (SI c: seqMergeEdits l rs)
+    
+    seqMergeEdits (SP:ls) (SP:rs) = SP:seqMergeEdits ls rs
+    seqMergeEdits (SP:ls) (SR:rs) = SR:seqMergeEdits ls rs
+    --seqMergeEdits l@(SP:ls) (SI c:rs) = (SI c:seqMergeEdits l rs)
 
     seqMergeEdits (SI c:ls) (SP:rs) = (SI c:seqMergeEdits ls rs)
     seqMergeEdits (SI c:ls) (SR:rs) = seqMergeEdits ls rs
-    seqMergeEdits l@(SI _:ls) (SI c:rs) = (SI c:seqMergeEdits l rs)
+    --seqMergeEdits l@(SI _:ls) (SI c:rs) = (SI c:seqMergeEdits l rs)
     seqMergeEdits [] r = r
 
     unpackEdit :: [PackedEdit] -> [SingleEdit]
@@ -231,6 +241,7 @@ seqMergeRevisions revs = Just $ Revision {
     unpackEdit (P n:rest) = SP: unpackEdit (P (n-1):rest)
     unpackEdit (I "":rest) = unpackEdit rest 
     unpackEdit (I (c:str):rest) = SI c: unpackEdit (I str:rest)
+--    unpackEdit (I str:rest) = map SI str ++ unpackEdit rest
     unpackEdit [] = []
     
     packEdit :: [SingleEdit] -> [PackedEdit]
@@ -245,7 +256,7 @@ seqMergeRevisions revs = Just $ Revision {
     packEdit' (SI c:ur, p) = packEdit' (ur, I (c:[]):p)  
     
     packEdit' ([], p) = ([], p)
-      
+
 
 latestVersion :: [Revision] -> Version
 latestVersion [] = 0
