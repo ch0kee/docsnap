@@ -38,17 +38,27 @@ import Data.List (findIndex)
 --by using 'a' instead of 'MVar'
 import Internal.Types
 import Application --leginkább a doclens miatt
-import Control.Concurrent.MVar.Strict
-
-
-clearDeadSessionTimeout = 3000000
-minSessionId = 0
-maxSessionId = 9999999
+import Control.Concurrent.MVar
 
 logDSS :: (MonadIO m) => String -> m ()
 logDSS s = liftIO $ putStrLn ("** " ++ s)
 
+-- hozzáférés dokumentumhoz megosztási linken keresztül
+access :: (MonadIO m) => DocumentHost -> SharedKey -> m Access
+access dh sk = liftIO $ do
+    shareMap <- readMVar (shares dh)
+    case M.lookup sk shareMap of
+        Just acc -> return $ Granted acc
+        Nothing  -> return Denied
 
+-- inicializálás
+documentHostInit :: SnapletInit b DocumentHost
+documentHostInit = makeSnaplet "dochost" "DocumentHost Snaplet" Nothing $ do
+--    (dm,sm) <- liftIO $ liftM2 (,) (newMVar []) (newMVar M.empty)
+    (dm,sm) <- liftIO $ (,) `liftM` newMVar [] `ap` newMVar M.empty
+    return $ DocumentHost dm sm
+
+{-
 tryAccessAs :: MonadIO m => DocumentHost -> SharedKey -> AccessRight ->  m (Maybe MDocument)
 tryAccessAs dh sk ar = liftIO $ do
     putStrLn ("try access with sk=" ++ T.unpack sk)
@@ -60,13 +70,8 @@ tryAccessAs dh sk ar = liftIO $ do
     accessDocument :: DocumentAccess -> AccessRight -> Maybe MDocument
     accessDocument (DocumentAccess (accr, doc)) r | accr == r = trace "access ok" $ Just doc
     accessDocument _ _ = trace "wrong access" $ Nothing
-      
+-}      
 
-documentHostInit :: SnapletInit b DocumentHost
-documentHostInit = makeSnaplet "dochost" "DocumentHost Snaplet" Nothing $ do
-    (dm,sm) <- liftIO $ liftM2 (,) (newMVar []) (newMVar M.empty)
-    --liftIO . forkIO $ clearDeadSessions dm    
-    return $ DocumentHost dm sm
 
 --véletlenszerű megosztókulcsok generálása  
 generateSharedKeys :: RandomGen g => g -> [SharedKey]
@@ -87,21 +92,24 @@ createDocument dh = do
         putMVar mdocs (mnewDoc:docs)
         return mnewDoc
 
+
+--véletlenszerű megosztókulcsok generálása  
+generateSharedKeys' :: IO [SharedKey]
+generateSharedKeys' =  evalRandIO (getRandoms) >>= return . map (T.pack . UUID.toString)
+
 -- | Dokumentum megosztása, ha még nincs megosztva
-shareDocument :: MonadIO m =>
-                 DocumentHost ->
---               ^^
-                 DocumentAccess -> m (SharedKey)
+shareDocument :: (MonadIO m) =>
+                 DocumentHost
+              -> DocumentAccess 
+              -> m (SharedKey)  -- ^ megosztási kulcs
 shareDocument dh dacc = liftIO $ trace "sharing ..." $ do
-  shareMap <- takeMVar $ shares dh
-  --putMVar (shares dh) $ updatedMap ar doc shareMap
-  gen <- newStdGen
-  let (newShareMap, sk) = case locateMapKey dacc shareMap of
-        Just oldSk -> (shareMap, oldSk)  --már meg van osztva
-        Nothing -> insertNewShare dacc shareMap (generateSharedKeys gen)
-  putMVar (shares dh) newShareMap
-  trace ("shared as " ++ T.unpack sk) $ return () 
-  return sk
+    sk <- modifyMVar (shares dh) $ \shareMap -> do
+        randomKeys <- generateSharedKeys'
+        return $ case locateMapKey dacc shareMap of
+          Just oldSk -> (shareMap, oldSk)  --már meg van osztva
+          Nothing -> insertNewShare dacc shareMap randomKeys
+    trace ("shared as " ++ T.unpack sk) $ return () 
+    return sk
   where
     --beszúr egy új dokumentumot, egyedi azonosítóval
     insertNewShare :: DocumentAccess -> ShareMap -> [SharedKey] -> (ShareMap, SharedKey)   
@@ -109,6 +117,7 @@ shareDocument dh dacc = liftIO $ trace "sharing ..." $ do
       Nothing -> (M.insert sk dacc shareMap, sk) --új, egyedi kulcs
       Just _  -> insertNewShare dacc shareMap moreSk --kulcsütközés
 
+--todo: in UTILS
 locateMapKey :: Eq a => a -> Map k a -> Maybe k
 locateMapKey v m = locateMapKey' . dropWhile ((/=v) . snd)  $  M.toList m
   where

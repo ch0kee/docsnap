@@ -1,5 +1,10 @@
 $(document).ready(function() {
 
+  function getChatName() {
+    var name = $('input[name="name"]').val();
+    return (name ? name : "unnamed");
+  }
+
   var diffEngine = new DiffEngine();
   var context =
     { syncContent:  ""
@@ -17,6 +22,7 @@ $(document).ready(function() {
     var request =
       { reqRevision: updatePackage
       , reqChatBuffer: context.syncChatBuffer
+      , reqChatName: getChatName()
       , reqChatVersion: context.syncChatVersion };
     console.log('synchronizeContent()::sending: ' + JSON.stringify(request));
     context.syncChatBuffer = [];
@@ -64,11 +70,11 @@ $(document).ready(function() {
   }
   
   
-  $("#chatfield").keypress(function(e) {
+  $('input[name="message"]').keypress(function(e) {
     if (e.which == 13) {
-      console.log('chat: '+$("#chatfield").val());
-      context.syncChatBuffer.push($("#chatfield").val());
-      $("#chatfield").val('');
+      console.log('chat: '+$('input[name="message"]').val());
+      context.syncChatBuffer.push($('input[name="message"]').val());
+      $('input[name="message"]').val('');
       return false; 
     }
   });

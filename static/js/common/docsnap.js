@@ -20,6 +20,7 @@ $(document).ready(function() {
   $("#new").button();
   $("#share").button()
     .click(function() {
+      $("#exportmenu").hide();
       $("#sharemenu").show('slow').position({
             my: "left top",
             at: "left bottom",
@@ -32,9 +33,34 @@ $(document).ready(function() {
       return false;
     });
   $("#sharemenu").menu().hide();
+  $('#sharemenu').children()
+    .css('cursor', 'pointer')
+    .click(function() {
+      var shareType = $(this).attr('data-type');
+      console.log('share as '+shareType);
+      $.ajax({
+        type    : "POST",
+        dataType: "html",
+        cache   : false,
+        data    : {
+          cmd: "share"
+        , args: shareType
+        },
+        success : function(revision) {
+          alert(revision);
+        },
+        error : function( xhr, status ) {
+          console.log("Sorry, there was a problem!");
+        },
+        complete : function( xhr, status ) {
+          //alert("The request is complete!");
+        }
+      });
+    });
 
   $("#export").button()
     .click(function() {
+      $("#sharemenu").hide();
       $("#exportmenu").show('slow').position({
             my: "left top",
             at: "left bottom",
@@ -47,7 +73,8 @@ $(document).ready(function() {
       return false;
     });
   $("#exportmenu").menu().hide();
-  $("#exportmenu").children().button()
+  $("#exportmenu").children()
+    .css('cursor', 'pointer')
     .click(function() {
       var index = $(this).attr("data-index");
 //      window.location.href = '/export';
@@ -72,7 +99,7 @@ $(document).ready(function() {
       });
     });
        
-  
+ /* 
   $("#readershare").button();
   $("#readershare").click(function() {
       $.ajax({
@@ -114,7 +141,7 @@ $(document).ready(function() {
         //alert("The request is complete!");
       }
     });    
-  });
+  });*/
 
   
   $("#bold").button();

@@ -16,7 +16,7 @@ import Data.Data (Data)
 import Data.Typeable (Typeable)
 import qualified Data.Map as M
 import  Control.Monad.Trans
-import Control.Concurrent.MVar.Strict
+import Control.Concurrent.MVar
 
 import Control.DeepSeq
 import Exporter
@@ -62,6 +62,7 @@ data Response = Response
   
 data Request = Request
     { reqRevision :: Revision
+    , reqChatName :: String
     , reqChatBuffer :: [String]
     , reqChatVersion :: Version }
   deriving (Show, Data, Typeable)
@@ -69,7 +70,7 @@ data Request = Request
 data AccessRight = Author | Reader
   deriving (Eq)
   
-instance NFData AccessRight 
+--instance NFData AccessRight 
 
 data InitialCheckout = InitialCheckout
     { initialContent :: T.Text }
@@ -82,9 +83,11 @@ type MShareMap = MVar ShareMap
 newtype DocumentAccess = DocumentAccess (AccessRight, MDocument)  
   deriving (Eq)
 
+{-
 instance NFData DocumentAccess 
 instance NFData (MVar Document)
 instance NFData Document
+-}
 
 data DocumentHost = DocumentHost
     { documents :: MVar [MDocument]
@@ -106,6 +109,11 @@ class MonadIO m => HasDocumentHost m
     modifyDH :: (DocumentHost -> DocumentHost) -> m ()
     
 
+data Access = Denied | Granted DocumentAccess
+--data DocumentAccess = DocumentAccess AccessRight MDocument
+
+--withAccess :: Access -> (Document -> Document) -> IO Document
+--withAccess Denied = return 
 
 
 data HtmlFormat = HtmlFormat
@@ -113,8 +121,6 @@ instance ExportableFormat HtmlFormat
   where
     displayName = const "html file"
     convert _ = id
-
---data Exporter = forall a. ExportableFormat a => Exporter a
 
 
 

@@ -23,8 +23,8 @@
   </head>
   <body spellcheck="false">
     <ul id="sharemenu">
-      <li id="authorshare">with author</li>
-      <li id="readershare">with reader</li>
+      <li id="authorshare" data-type="author">with author</li>
+      <li id="readershare" data-type="reader">with reader</li>
     </ul>
     <exporters/>
     <div class="ui-layout-north">
@@ -48,8 +48,9 @@
       <div class="ui-state-default" style="padding: 3px; text-align: center;">
          Chat
       </div>
+      <input id="chatname" placeholder="Enter your name" type="text"  class="ui-widget-content" name="name" value="">
       <div id="chatlog" class="chatlog ui-layout-content ui-widget-content" contenteditable="false"></div>
-      <input id="chatfield" type="text" style="width:100%" class="ui-widget-content" name="chatInput" value=""><br>
+      <input id="chatfield" placeholder="Type your message" type="text" style="width:100%" class="ui-widget-content" name="message" value="">
     </div>
     <div class="ui-layout-south" style="padding: 0px">
       <div class="ui-state-default" style="padding: 3px; text-align: center;">

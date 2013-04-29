@@ -11,7 +11,7 @@ data TxtFormat = TxtFormat
 instance ExportableFormat TxtFormat
   where
     displayName = const "text file"
-    convert _ _ = "text content"
+    convert _ raw = concat . map substitute . canonicalizeTags . parseTags $ raw
 
 convert :: String -> String
 convert = concat . map substitute . canonicalizeTags . parseTags
