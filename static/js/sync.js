@@ -1,71 +1,76 @@
 $(document).ready(function() {
-
-  function getChatName() {
-    var name = $('input[name="name"]').val();
-    return (name ? name : "unnamed");
-  }
-
-  var diffEngine = new DiffEngine();
+//  var diffEngine = new DiffEngine();
   var context =
     { syncContent:  ""
     , syncVersion: 0
     , syncChatBuffer: []
-    , syncChatVersion: -1
-    , getActualContent: function () { return $('#editor').html(); } };
-
-  var syncInterval = 1000;
-  var syncHelper = createSyncHelper(context, diffEngine);
+    , syncChatVersion: -1 };
   
   //synchronize
   function  synchronizeContent() {
-    var updatePackage = syncHelper.createUpdatePackage();
     var request =
-      { reqRevision: updatePackage
+      { reqRevision: { version: context.syncVersion }
       , reqChatBuffer: context.syncChatBuffer
-      , reqChatName: getChatName()
+      , reqChatName: DocSnap.getChatName()
       , reqChatVersion: context.syncChatVersion };
-    console.log('synchronizeContent()::sending: ' + JSON.stringify(request));
     context.syncChatBuffer = [];
-    $.ajax({
-      type    : "POST",
-      dataType: "json",
-      cache   : false,
-      data    : {
-        cmd:  "update"
-      , args: JSON.stringify(request)
-      },
-      success : function(response) {
-        console.log('synchronizeContent()::received ' + JSON.stringify(response));
-        var revision = response.rspRevision;
-        context.syncChatVersion = response.rspChatVersion;
-        console.log('synchronizeContent()::context ' + JSON.stringify(context));
-        showChatMessages(response.rspChatMessages);
-        var nochanges = revision.version == context.syncVersion;
-        
-        if (nochanges) {
-          //assert: revision.edits.length == 0
-          setTimeout(synchronizeContent, syncInterval);
-          return;
-        }
 
-        //assert srvVersion > syncVersion
-        saveSelection();      
-        
-        var result = syncHelper.handleResponse(revision);
-        if (result) {
-          $('#editor').html(result);
-        }
-        
-        restoreSelection();
-        setTimeout(synchronizeContent, syncInterval);
-      },
-      error : function( xhr, status ) {
-        console.log("** error during synchronization");
-      },
-      complete : function( xhr, status ) {
-        //alert("The request is complete!");
+    if (DocSnap.__CANCOMMIT) {
+      DocSnap.__sentContent = DocSnap.getActualContent();    
+      console.log('old: ['+context.syncContent+']');
+      request.reqRevision.edits = DocSnap.collectEditsSince(context.syncContent);
+      console.log('actual: ['+DocSnap.getActualContent()+']');
+    } else {
+      request.reqRevision.edits = [];
+    }
+    console.log('synchronizeContent()::sending: ' + JSON.stringify(request));
+  
+    DocSnap.sendAjaxCommand("update", request, function(response) {
+      console.log('synchronizeContent()::received ' + JSON.stringify(response));
 
+      DocSnap.showChatMessages(response.rspChatMessages);
+      context.syncChatVersion = response.rspChatVersion;
+      
+      var versionIncremented = response.rspRevision.version > context.syncVersion;
+      var receivedEdits = response.rspRevision.edits.length > 0;
+
+      if (DocSnap.__CANCOMMIT && versionIncremented && !receivedEdits) {
+        //elfogadták, amit beküldtünk
+        console.log('commit accepted');
+        context.syncContent = DocSnap.__sentContent;
       }
+      
+      context.syncVersion = response.rspRevision.version;
+      
+      //van változás
+      if (receivedEdits) {
+        //számítsuk ki az új tartalmat
+        //ez megegyezik a szerver oldalival
+        var newSyncContent =
+          DocSnap.DiffEngine.executeES1 (context.syncContent
+                                        ,response.rspRevision.edits);
+        
+        
+        //a kiválasztás megőrzésével megjelenítjük a módosításokat
+        //az időközben elkövetett módosításokat is alkalmazni kell.
+        //ha csak olvasni tud, akkor a kiválasztást megőrző nodeok
+        //is változtatásnak számítanak, így jelölhet ki
+        DocSnap.saveSelection();
+        
+        var localEdits = DocSnap.collectEditsSince (context.syncContent);
+        var combinedContent =
+          DocSnap.DiffEngine.executeES2 (context.syncContent
+                                        ,localEdits
+                                        ,response.rspRevision.edits);
+        context.syncContent = newSyncContent;
+
+        DocSnap.setActualContent(combinedContent); 
+          
+        DocSnap.restoreSelection();
+      }
+      
+      
+      setTimeout(synchronizeContent, DocSnap.__syncInterval);
     });
   }
   
@@ -78,43 +83,25 @@ $(document).ready(function() {
       return false; 
     }
   });
-  
-  function  showChatMessages(msgs) {
-    for(var i = msgs.length-1; i >= 0; --i) {
-      $('#chatlog').append('<div>'+msgs[i].sender+': '+msgs[i].message+'</div>');
-    }
-  }
+
   
   function  initialCheckout() {
-      //start loading progress bar
-    $.ajax({
-      type    : "POST",
-      dataType: "json",
-      cache   : false,
-      data    : {
-        cmd: "init"
-      , args: null
-      },
-      success : function(response) {
-        context.syncContent = "";
-        console.log('initialCheckout()::received ' + JSON.stringify(response));
-        
-        var revision = response.rspRevision;
-        var srvVersion = revision.version;
-        context.syncContent = diffEngine.executeES1(context.syncContent, revision.edits);
-        context.syncVersion = srvVersion;
-        context.syncChatVersion = response.rspChatVersion;
-        showChatMessages(response.rspChatMessages);
-        $('#editor').html(context.syncContent);
-        console.log('initialCheckout()::context ' + JSON.stringify(context));
-        setTimeout(synchronizeContent, syncInterval);
-      },
-      error : function( xhr, status ) {
-        console.log("** error during synchronization");
-      },
-      complete : function( xhr, status ) {
-        //alert("The request is complete!");
-      }
+    //start loading progress bar
+    DocSnap.sendAjaxCommand("init", null, function(response) {
+      context.syncContent = "";
+      console.log('initialCheckout()::received ' + JSON.stringify(response));
+      
+      var revision = response.rspRevision;
+      var srvVersion = revision.version;
+      context.syncContent =
+        DocSnap.DiffEngine.executeES1 (context.syncContent
+                                      ,response.rspRevision.edits);
+      context.syncVersion = response.rspRevision.version;
+      context.syncChatVersion = response.rspChatVersion;      
+      DocSnap.showChatMessages(response.rspChatMessages);
+      
+      DocSnap.setActualContent(context.syncContent);
+      setTimeout(synchronizeContent, DocSnap.__syncInterval);
     });    
   } 
   

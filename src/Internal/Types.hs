@@ -1,7 +1,6 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-} 
@@ -12,13 +11,10 @@
 module Internal.Types where
 
 import qualified Data.Text as T
-import Data.Data (Data)
-import Data.Typeable (Typeable)
 import qualified Data.Map as M
 import  Control.Monad.Trans
 import Control.Concurrent.MVar
 
-import Control.DeepSeq
 import Exporter
 
 type Content = String
@@ -33,12 +29,12 @@ data PackedEdit =
     I String --insert str
   | P Int --preserve n
   | R Int --remove n
-  deriving (Show, Data, Typeable)
+  deriving (Show)
            
 data Revision = Revision
     { version::Version
     , edits::[PackedEdit] }
-  deriving (Show, Data, Typeable)
+  deriving (Show)
 
 type Version = Int
 
@@ -52,29 +48,36 @@ type Version = Int
 data ChatMessage = ChatMessage
     { sender :: String
     , message :: String }
-  deriving (Show, Data, Typeable)
+  deriving (Show)
   
-data Response = Response
+data UpdateResponse = UpdateResponse
+    { rspRevision :: Revision
+    , rspChatMessages :: [ChatMessage]
+    , rspChatVersion :: Version }
+  deriving (Show)
+  
+  {-
+data CleanContentResponse = UpdateResponse
     { rspRevision :: Revision
     , rspChatMessages :: [ChatMessage]
     , rspChatVersion :: Version }
   deriving (Show, Data, Typeable)
+  -}
   
 data Request = Request
     { reqRevision :: Revision
     , reqChatName :: String
     , reqChatBuffer :: [String]
     , reqChatVersion :: Version }
-  deriving (Show, Data, Typeable)
+  deriving (Show)
   
 data AccessRight = Author | Reader
   deriving (Eq)
   
---instance NFData AccessRight 
 
 data InitialCheckout = InitialCheckout
     { initialContent :: T.Text }
-  deriving (Data,Typeable,Show)
+  deriving (Show)
 
 type MDocument = MVar Document
 type ShareMap = M.Map SharedKey DocumentAccess
@@ -83,11 +86,6 @@ type MShareMap = MVar ShareMap
 newtype DocumentAccess = DocumentAccess (AccessRight, MDocument)  
   deriving (Eq)
 
-{-
-instance NFData DocumentAccess 
-instance NFData (MVar Document)
-instance NFData Document
--}
 
 data DocumentHost = DocumentHost
     { documents :: MVar [MDocument]

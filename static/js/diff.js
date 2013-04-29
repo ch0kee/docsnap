@@ -1,3 +1,4 @@
+
 //edit script iterator
 function ESIterator (es) {
   this._index = 0;
@@ -7,28 +8,28 @@ function ESIterator (es) {
 
 ESIterator.prototype._resetCharCounter = function() {
   this._charCounter = 1;
-}
+};
 
 ESIterator.prototype.isEnd = function() {
   return this._index >= this._es.length;
-}
+};
 
 ESIterator.prototype.inserting = function () {
   return this._es[ this._index ].I !== undefined;
-}
+};
 
 ESIterator.prototype.removing = function () {
   return this._es[ this._index ].R !== undefined;
-}
+};
 
 ESIterator.prototype.preserving = function () {
   return this._es[ this._index ].P !== undefined;
-}
+};
 
 ESIterator.prototype.value = function() {
   //assert (this.inserting())
   return this._es[ this._index ].I;
-}
+};
 
 ESIterator.prototype.advance =  function () {
   if (this.isEnd()) {
@@ -55,9 +56,11 @@ ESIterator.prototype.advance =  function () {
       }    
     }
   }
-}
+};
 
-DiffEngine.prototype.executeES1 = function(content, ses) {
+DocSnap.DiffEngine = {}
+
+DocSnap.DiffEngine.executeES1 = function(content, ses) {
   var s = new ESIterator(ses);
 
   var result = "";
@@ -77,10 +80,10 @@ DiffEngine.prototype.executeES1 = function(content, ses) {
     }
   }
   return result;
-}
+};
 
 //ses1-ben lévő insert előlrébb kerül be ugyanazon indexen!
-DiffEngine.prototype.executeES2 = function(content, ses1, ses2) {
+DocSnap.DiffEngine.executeES2 = function(content, ses1, ses2) {
 
   var s1 = new ESIterator(ses1);
   var s2 = new ESIterator(ses2);
@@ -108,32 +111,31 @@ DiffEngine.prototype.executeES2 = function(content, ses1, ses2) {
     }
   }
   return result;
-}
+};
 
-function DiffEngine() { }
 
-DiffEngine.prototype._equals = function(left, right) {
+DocSnap.DiffEngine._equals = function(left, right) {
   return left === right;
-}
+};
 
-DiffEngine.prototype._clonePath = function(path) {
+DocSnap.DiffEngine._clonePath = function(path) {
   return { x: path.x, components: path.components.slice(0) };
-}
+};
 
-DiffEngine.prototype._createComponent= function(value, type) {
+DocSnap.DiffEngine._createComponent= function(value, type) {
   return { value: value, type: type };
-}
+};
 
-DiffEngine.prototype._pushComponent = function(components, value, type) {
+DocSnap.DiffEngine._pushComponent = function(components, value, type) {
   var last = components[components.length-1];
   if (last && last.type === type) {
     components[components.length-1] = this._createComponent(last.value + value, type);
   } else {
     components.push(this._createComponent(value, type));
   }
-}
+};
 
-DiffEngine.prototype._extractCommon = function(basePath, newString, oldString, diagonalPath) {
+DocSnap.DiffEngine._extractCommon = function(basePath, newString, oldString, diagonalPath) {
   var newLen = newString.length,
       oldLen = oldString.length,
       x = basePath.x,
@@ -146,11 +148,11 @@ DiffEngine.prototype._extractCommon = function(basePath, newString, oldString, d
   }
   basePath.x = x;
   return y;
-}
+};
 
 //invariáns ?
 //returns : [ { I: "..." }, { P:24 }, { R:5 } ] style object
-DiffEngine.prototype._fixify = function(editScript) {
+DocSnap.DiffEngine._fixify = function(editScript) {
   var result = [];
   for(var i = 0; i < editScript.length; ++i) {
     var thisEdit = { };
@@ -176,12 +178,21 @@ DiffEngine.prototype._fixify = function(editScript) {
     
     result.push(thisEdit);
   }
+  if (result.length == 1 && result[0].P !== undefined) {
+    result = [];
+  }
+  if (result.length == 1 && result[0].R !== undefined && result[0].R == 0) {
+    result = [];
+  }  
+  if (result.length == 1 && result[0].I !== undefined && result[0].I == "") {
+    result = [];
+  }  
   return result;
-}
+};
 
 
 //get Shortest Edit Script
-DiffEngine.prototype.getShortestEditScript = function(oldString, newString) {
+DocSnap.DiffEngine.getShortestEditScript = function(oldString, newString) {
   if (newString === oldString) {
     return this._fixify( [this._createComponent(newString,'=')] );
   }
@@ -246,4 +257,14 @@ DiffEngine.prototype.getShortestEditScript = function(oldString, newString) {
       }
     }
   }
-}
+};
+
+//@ változások összegyűjtése
+DocSnap.collectEditsSince = function (since) {
+  var edits = this.DiffEngine.getShortestEditScript(this.tokenize(since)
+                                    ,this.tokenize(this.getActualContent()));
+//üres listát adjunk vissza, ha nem változott semmi
+//todo ezt a getShortestEditScript csinálja
+
+  return edits;
+};

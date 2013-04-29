@@ -9,16 +9,17 @@
     <link rel="stylesheet" type="text/css" href="/static/css/redmond/jquery-ui-1.10.2.custom.css" />
     <link rel="stylesheet" type="text/css" href="/static/css/bigbuttons/jquery-ui-1.10.2.custom.css" />
     <link type="text/css" rel="stylesheet" href="/static/css/layout-default-latest.css" />
-    <script src="/static/js/common/jquery-1.9.1.js"></script>
+    <script src="/static/js/libs/jquery-1.9.1.js"></script>
     <script src="http://code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
-    <script src="/static/js/common/jquerypp/jquerypp.js"> </script>
-    <script src="/static/js/common/rangy-1.2.3/rangy-core.js"> </script>
-    <script src="/static/js/common/rangy-1.2.3/rangy-selectionsaverestore.js"> </script>
-    <script src="/static/js/common/rangy-1.2.3/rangy-cssclassapplier.js"> </script>
-    <script src="/static/js/common/jquery.layout-latest.js"> </script>
-    <script src="/static/js/common/utils.js"> </script>
-    <script src="/static/js/common/diff.js"> </script>
-    <script src="/static/js/common/docsnap.js"> </script>
+    <script src="/static/js/libs/jquerypp/jquerypp.js"> </script>
+    <script src="/static/js/libs/rangy-1.2.3/rangy-core.js"> </script>
+    <script src="/static/js/libs/rangy-1.2.3/rangy-selectionsaverestore.js"> </script>
+    <script src="/static/js/libs/rangy-1.2.3/rangy-cssclassapplier.js"> </script>
+    <script src="/static/js/libs/jquery.layout-latest.js"> </script>
+    <script src="/static/js/environment.js"> </script>
+    <script src="/static/js/utils.js"> </script>
+    <script src="/static/js/diff.js"> </script>
+    <script src="/static/js/docsnap.js"> </script>
     <heistscripts/>
   </head>
   <body spellcheck="false">

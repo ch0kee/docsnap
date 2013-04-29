@@ -8,18 +8,18 @@ module Serialize (
 import  Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import  Internal.Types
 import  qualified Data.Text as T
-import  Data.Aeson
-import  qualified Data.Aeson.Generic as A
+import  qualified Data.Aeson as A
+--import  qualified Data.Aeson.Generic as A
 import  Data.Aeson.TH
 import  qualified Data.ByteString as B
 import  qualified Data.ByteString.Lazy as BL
 
 -- | Válasz átalakítása hálózaton küldhető adatra
-serialize :: Response -> B.ByteString
+serialize :: A.ToJSON a => a -> B.ByteString
 serialize = lbsToBs . A.encode 
 
 -- | Válasz előállítása hálózaton érkezett adatból
-deserialize :: B.ByteString -> Maybe Request
+deserialize :: A.FromJSON a => B.ByteString -> Maybe a
 deserialize = A.decode . bsToLbs
 
 -- | Konverziós rutinok
@@ -33,7 +33,8 @@ bsToLbs = BL.pack . B.unpack
 $(deriveJSON id ''PackedEdit)
 $(deriveJSON id ''Revision)
 $(deriveJSON id ''ChatMessage)
-$(deriveJSON id ''Response)
+$(deriveJSON id ''UpdateResponse)
+$(deriveJSON id ''Request)
 
 
 test = Revision 10 [ I "proba", P 24, R 5]

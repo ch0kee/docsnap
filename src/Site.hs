@@ -88,7 +88,7 @@ handleOpen sharedKey = trace "HANDLE_OPEN" $ do
     notFoundDialog sk = renderErrorDialog
       ("The following document doesn't exist:\\n" ++ urlOnSite sk) "Ok"
     loadExistingDocument = renderWithSplices "main"
-      [ ("heistscripts", javascriptsSplice "/static/js/" ["sync", "author/docsnap-author"] ) ]
+      [ ("heistscripts", javascriptsSplice "/static/js/" ["author", "sync"] ) ]
 
 sharePrefix = "http://localhost:8000/"
 
@@ -147,7 +147,7 @@ handleContentUpdate (DocumentAccess (right, mdoc))= trace "HANDLE_CONTENT_UPDATE
               (newChatVersion,newChatMessages) = receiveChatMessages doc' chatVersion         
           liftIO $ putMVar mdoc doc'
           rev <- commit mdoc rev
-          let response = Response rev newChatMessages newChatVersion
+          let response = UpdateResponse rev newChatMessages newChatVersion
           writeBS $ serialize response
           logDSS ("sent " ++ bsToStr (serialize response)) 
       
@@ -260,9 +260,10 @@ handleInitialCheckout (DocumentAccess(_,mdoc)) = trace "HANDLE_INITIAL_CHECKOUT_
 --    dh <- getDocumentHost
 --    doc <- accessAs dh Author
     revs <- getRevisions mdoc
+    logDSS $ show revs
     let curRev = maybe (Revision 0 []) id $ seqMergeRevisions revs
     logDSS $ show curRev  
-    writeBS $ serialize $ Response curRev [] (-1)
+    writeBS $ serialize $ UpdateResponse curRev [] (-1)
     logDSS "initial checkout handled"
 
 
