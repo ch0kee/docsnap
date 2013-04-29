@@ -12,7 +12,6 @@
 module Internal.Types where
 
 import qualified Data.Text as T
-import Control.Concurrent.STM
 import Data.Data (Data)
 import Data.Typeable (Typeable)
 import qualified Data.Map as M
@@ -25,20 +24,20 @@ import Exporter
 type Content = String
 type Length = Int
 type Count = Int
-{-
-data PackedEdit = Inserts String | Preserves Count | Removes Count
-  deriving (Show)
--}
+
 
 data SingleEdit = SI Char | SP | SR
   deriving (Show)
 
-data PackedEdit = I String --insert str
-           | P Int --preserve n
-           | R Int --remove n
+data PackedEdit =
+    I String --insert str
+  | P Int --preserve n
+  | R Int --remove n
   deriving (Show, Data, Typeable)
            
-data Revision = Revision { version::Version, edits::[PackedEdit] }
+data Revision = Revision
+    { version::Version
+    , edits::[PackedEdit] }
   deriving (Show, Data, Typeable)
 
 type Version = Int
@@ -50,29 +49,30 @@ type Version = Int
 --  deriving (Show)
 
 
-data ChatMessage = ChatMessage { sender :: String, message :: String }
-  deriving (Show, Data, Typeable)
-data Response = Response {
-  rspSessionId :: SessionId
-, rspRevision :: Revision
-, rspChatMessages :: [ChatMessage]
-, rspChatVersion :: Version
-}
+data ChatMessage = ChatMessage
+    { sender :: String
+    , message :: String }
   deriving (Show, Data, Typeable)
   
-data Request = Request {
-  reqSessionId :: SessionId
-, reqRevision :: Revision
-, reqChatBuffer :: [String]
-, reqChatVersion :: Version
-} deriving (Show, Data, Typeable)
+data Response = Response
+    { rspRevision :: Revision
+    , rspChatMessages :: [ChatMessage]
+    , rspChatVersion :: Version }
+  deriving (Show, Data, Typeable)
+  
+data Request = Request
+    { reqRevision :: Revision
+    , reqChatBuffer :: [String]
+    , reqChatVersion :: Version }
+  deriving (Show, Data, Typeable)
   
 data AccessRight = Author | Reader
   deriving (Eq)
   
 instance NFData AccessRight 
 
-data InitialCheckout = InitialCheckout { initialContent :: T.Text }
+data InitialCheckout = InitialCheckout
+    { initialContent :: T.Text }
   deriving (Data,Typeable,Show)
 
 type MDocument = MVar Document
@@ -86,25 +86,16 @@ instance NFData DocumentAccess
 instance NFData (MVar Document)
 instance NFData Document
 
-data DocumentHost = DocumentHost {
-  documents :: MVar [MDocument]
-, shares :: MVar ShareMap
-}
+data DocumentHost = DocumentHost
+    { documents :: MVar [MDocument]
+    , shares :: MVar ShareMap }
 
-type SessionId = Int
-data Editor = Editor {
-  sessId :: SessionId
-, name :: String
-, touched :: Bool
-}
 
 type ChatLog = [ChatMessage]
 
-data Document = Document {
-  revisions :: [Revision]
-, editors :: [Editor]
-, chatLog :: [(Int, ChatMessage)]
-}
+data Document = Document
+    { revisions :: [Revision]
+    , chatLog :: [(Int, ChatMessage)] }
 
 type SharedKey = T.Text
 type RevisionHistory = [Revision]

@@ -1,14 +1,12 @@
 $(document).ready(function() {
 
   var diffEngine = new DiffEngine();
-  var context = {
-    syncContent:  ""
-  , syncVersion: 0
-  , syncSessionId: 0
-  , syncChatBuffer: []
-  , syncChatVersion: -1
-  , getActualContent: function () { return $('#editor').html(); }
-  };
+  var context =
+    { syncContent:  ""
+    , syncVersion: 0
+    , syncChatBuffer: []
+    , syncChatVersion: -1
+    , getActualContent: function () { return $('#editor').html(); } };
 
   var syncInterval = 1000;
   var syncHelper = createSyncHelper(context, diffEngine);
@@ -16,13 +14,10 @@ $(document).ready(function() {
   //synchronize
   function  synchronizeContent() {
     var updatePackage = syncHelper.createUpdatePackage();
-    console.log('synchronizeContent()::sessionId = ' + context.syncSessionId);
-    var request = {
-      reqSessionId: context.syncSessionId
-    , reqRevision: updatePackage
-    , reqChatBuffer: context.syncChatBuffer
-    , reqChatVersion: context.syncChatVersion
-    };
+    var request =
+      { reqRevision: updatePackage
+      , reqChatBuffer: context.syncChatBuffer
+      , reqChatVersion: context.syncChatVersion };
     console.log('synchronizeContent()::sending: ' + JSON.stringify(request));
     context.syncChatBuffer = [];
     $.ajax({
@@ -36,7 +31,6 @@ $(document).ready(function() {
       success : function(response) {
         console.log('synchronizeContent()::received ' + JSON.stringify(response));
         var revision = response.rspRevision;
-        context.syncSessionId = response.rspSessionId;
         context.syncChatVersion = response.rspChatVersion;
         console.log('synchronizeContent()::context ' + JSON.stringify(context));
         showChatMessages(response.rspChatMessages);
@@ -57,9 +51,6 @@ $(document).ready(function() {
         }
         
         restoreSelection();
-        
-        
-
         setTimeout(synchronizeContent, syncInterval);
       },
       error : function( xhr, status ) {
@@ -109,7 +100,6 @@ $(document).ready(function() {
         context.syncChatVersion = response.rspChatVersion;
         showChatMessages(response.rspChatMessages);
         $('#editor').html(context.syncContent);
-        context.syncSessionId = response.rspSessionId;
         console.log('initialCheckout()::context ' + JSON.stringify(context));
         setTimeout(synchronizeContent, syncInterval);
       },

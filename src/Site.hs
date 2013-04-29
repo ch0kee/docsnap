@@ -117,31 +117,20 @@ handleContentUpdate = trace "HANDLE_CONTENT_UPDATE" $ do
   where
     handleCommit :: MDocument -> B.ByteString -> AppHandler ()
     handleCommit mdoc cdata = do
-      case parseRequest cdata of
+      case deserialize cdata of
         Nothing -> trace "bad request data" $ error "bad request data"
-        Just (Request sid rev chatBuffer chatVersion)  -> do
-          --touch session
-          maybeNewSessionId <- trace "touchEditor" $ touchEditor mdoc sid
+        Just (Request rev chatBuffer chatVersion)  -> do
           doc <- liftIO $ takeMVar mdoc
           let authorName = "unnamed"
-          let doc' = foldl sendChatMessage doc $ map (ChatMessage authorName) chatBuffer
-          logDSS ("chat messages : " ++ show (chatLog doc'))
-          let (newChatVersion,newChatMessages) = receiveChatMessages doc' chatVersion         
+              doc' = foldl sendChatMessage doc $ map (ChatMessage authorName) chatBuffer
+              (newChatVersion,newChatMessages) = receiveChatMessages doc' chatVersion         
           liftIO $ putMVar mdoc doc'
-          case maybeNewSessionId of
-            Nothing     -> trace "invalid session" $ error "invalid session"
-            Just newSid -> do
-              rev <- commit mdoc rev
-              let response = Response newSid rev newChatMessages newChatVersion
-              logDSS "*** NOW SENDING ***"            
-              logDSS ("sending " ++ bsToStr (serialize response)) 
-              writeBS $ serialize response
-              logDSS "*** SENT ***"
+          rev <- commit mdoc rev
+          let response = Response rev newChatMessages newChatVersion
+          writeBS $ serialize response
+          logDSS ("sent " ++ bsToStr (serialize response)) 
       
---hibás url esetén visszadobjuk a kezdőlapra és
---feldobunk egy dialogot a hibaüzenettel
---figyelve arra, hogy ha van sessionje, akkor azt ne töröljük
---jobb lenne, ha több tabon tudna dolgozni
+--hibás url esetén feldobunk egy dialogot a hibaüzenettel
 handleOpen :: AppHandler ()
 handleOpen = trace "HANDLE_OPEN" $ do
     dh <- getDocumentHost
@@ -158,7 +147,7 @@ handleOpen = trace "HANDLE_OPEN" $ do
       ("The following document doesn't exist:\\n" ++ urlOnSite sk) "ok"
     storeSession sk = with session $ do {resetSession ; setInSession "sk" sk; commitSession}
     loadExistingDocument = renderWithSplices "main" [ ("heistscripts", scripts ) ]
-    scripts = javascriptsSplice "/static/js/" ["sync/script", "author/docsnap-author"]
+    scripts = javascriptsSplice "/static/js/" ["sync", "author/docsnap-author"]
 
 renderErrorDialog content button = renderDialog content button "/"
 
@@ -274,8 +263,7 @@ handleInitialCheckout = trace "HANDLE_INITIAL_CHECKOUT_" $ do
     revs <- getRevisions doc
     let curRev = maybe (Revision 0 []) id $ seqMergeRevisions revs
     logDSS $ show curRev  
-    sid <- addNewEditor doc 
-    writeBS $ serialize $ Response sid curRev [] (-1)
+    writeBS $ serialize $ Response curRev [] (-1)
     logDSS "initial checkout handled"
    
 
@@ -283,24 +271,10 @@ showCreateNewDialog :: AppHandler ()
 showCreateNewDialog = renderWithSplices "main" [("heistscripts", openNewDialogSplice)]
   where
     openNewDialogSplice = scriptsSplice "static/js/newdlg/" "/static/js/"
-  
---ha van cookie és hozzáférhető akkor redirect oda,
---egyébként töröljük a sütit és showcreate
+
 handleIndex :: AppHandler ()
 handleIndex = trace "HANDLE_INDEX" $ do
-    --dh <- getDocumentHost
-    --savedSk <- with session $ getFromSession "sk"
-    --case savedSk of
-    createNewSession
-    --  Just sk -> do
-    --    macc <- tryAccessAs dh sk Author
-    --    case macc of
-    --      Just _  -> redirect $ getAccessURI sk --létező dokumentum
-    --      Nothing -> createNewSession
-  where
-    createNewSession = do
-      --with session $ withSession session $ resetSession
-      showCreateNewDialog
+    showCreateNewDialog
   
 
 lbsToBs :: BL.ByteString -> B.ByteString

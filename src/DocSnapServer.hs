@@ -51,115 +51,47 @@ logDSS s = liftIO $ putStrLn ("** " ++ s)
 
 tryAccessAs :: MonadIO m => DocumentHost -> SharedKey -> AccessRight ->  m (Maybe MDocument)
 tryAccessAs dh sk ar = liftIO $ do
-  putStrLn ("try access with sk=" ++ T.unpack sk)
-  shareMap <- readMVar (shares dh)
-  return $ case M.lookup sk shareMap of
-    Just acc -> trace "access granted" $ accessDocument acc ar
-    Nothing -> trace "no such access" $ Nothing
-    
+    putStrLn ("try access with sk=" ++ T.unpack sk)
+    shareMap <- readMVar (shares dh)
+    return $ case M.lookup sk shareMap of
+        Just acc -> trace "access granted" $ accessDocument acc ar
+        Nothing -> trace "no such access" $ Nothing
   where
     accessDocument :: DocumentAccess -> AccessRight -> Maybe MDocument
     accessDocument (DocumentAccess (accr, doc)) r | accr == r = trace "access ok" $ Just doc
     accessDocument _ _ = trace "wrong access" $ Nothing
       
 
--- | A clearDeadSessions függvény egy olyan akciót hoz létre, amelyik
--- adott időközönként eldobja a nem frissített munkameneteket
-clearDeadSessions :: MVar [MDocument] -> IO ()
-clearDeadSessions mdocs = forever $ do
-  threadDelay clearDeadSessionTimeout
-  putStrLn "clearing dead sessions..."
-  docs <- readMVar mdocs
-  forM_ docs clearDeadSessions'
-    where
-      clearDeadSessions' :: MDocument -> IO ()
-      clearDeadSessions' mdoc = do
-        doc <- takeMVar mdoc
-        let remainingEditors = filter touched (editors doc)
-        let invalidatedEditors = map (\e -> e {touched=False}) remainingEditors
-        putMVar mdoc $ doc {editors=invalidatedEditors}
-
-
 documentHostInit :: SnapletInit b DocumentHost
 documentHostInit = makeSnaplet "dochost" "DocumentHost Snaplet" Nothing $ do
-  (dm,sm) <- liftIO $ liftM2 (,) (newMVar []) (newMVar M.empty)
-  --liftIO . forkIO $ clearDeadSessions dm    
-  return $ DocumentHost dm sm
+    (dm,sm) <- liftIO $ liftM2 (,) (newMVar []) (newMVar M.empty)
+    --liftIO . forkIO $ clearDeadSessions dm    
+    return $ DocumentHost dm sm
 
 --véletlenszerű megosztókulcsok generálása  
 generateSharedKeys :: RandomGen g => g -> [SharedKey]
 generateSharedKeys g = map (T.pack . UUID.toString) (randoms g :: [UUID])
 
 
---véletlenszerű munkamenet azonosítók generálása
-generateSessionIds :: RandomGen g => g -> [SessionId]
-generateSessionIds = randomRs (minSessionId,maxSessionId)
-
---új résztvevő hozzáadása
-addNewEditor :: MonadIO m => MDocument -> m (SessionId)
-addNewEditor mdoc = liftIO $ do
-  gen <- newStdGen
-  let randomSids = generateSessionIds gen
-  doc <- takeMVar mdoc
-  let docSids = map sessId $ editors doc 
-  let (sid:_) = until (\(x:_) -> x `notElem` docSids) tail randomSids
-  putMVar mdoc $ doc { editors=editors doc ++ [Editor{sessId=sid,touched=True}] }
-  return sid
-      
---visszaadja azt a listát, amiben a p predikátumot teljesítő
---elemekre alkalmazva van az f függvény
-listWith :: (a -> Bool) -> (a -> a) -> [a] -> [a]
-listWith p f (x:xs)
-  | p x       = (f x:listWith p f xs) 
-  | otherwise = (x:listWith p f xs)
-listWith p f [] = []
-
---visszaadja azt a listát, amiben az első p predikátumot teljesítő
---elemek alkalmazva van az f függvény
-listWithFirst :: (a -> Bool) -> (a -> a) -> [a] -> ([a], Maybe a)
-listWithFirst p f xs =
-  case findIndex p xs of
-    Nothing -> (xs, Nothing)
-    Just i  -> composition' f (splitAt i xs)
-  where
-    composition' f (left, x:xs) = (left ++ [f x] ++ xs, Just $ f x)
-
-
-  
---résztvevő érvényesítése
-touchEditor :: MonadIO m => MDocument -> SessionId -> m (Maybe SessionId)
-touchEditor mdoc oldSid = liftIO $ do
-  trace ("old session id :" ++ show oldSid) $ return ()
-  randomSids <- newStdGen >>= return . generateSessionIds
-  doc <- takeMVar mdoc
-  let docSids = map sessId $ editors doc
-  trace ("session ids before touch " ++ show docSids) $ return () 
-  let (newEditors, maybeNewSessionId) = listWithFirst ((==oldSid) . sessId) (update docSids randomSids) $ editors doc
-  trace ("session ids AFTER touch " ++ show (map sessId newEditors)) $ return () 
-  putMVar mdoc $ doc { editors=newEditors }
-  return $ maybe Nothing (Just . sessId) maybeNewSessionId
-    where
-      update :: [SessionId] -> [SessionId] -> Editor -> Editor
-      update docSids randomSids er = er { 
-          touched=True --érvényesítjük
-        , sessId=head $ until (\(x:_) -> x `notElem` docSids) tail randomSids
-      }
-      
-      
+-- | Új, üres dokumentum
 emptyDocument :: Document
-emptyDocument = Document {revisions=[], editors=[], chatLog=[]}
+emptyDocument = Document {revisions=[], chatLog=[]}
 
---dokumentum létrehozása és megosztása
+-- | Új dokumentum létrehozása
 createDocument :: MonadIO m => DocumentHost -> m (MDocument)
 createDocument dh = do
-  let mdocs = documents dh
-  liftIO $ trace "creating..." $ do
-    mnewDoc <- newMVar emptyDocument
-    docs <- takeMVar mdocs
-    putMVar mdocs (mnewDoc:docs)
-    return mnewDoc
+    let mdocs = documents dh
+    liftIO $ trace "creating..." $ do
+        mnewDoc <- newMVar emptyDocument
+        docs <- takeMVar mdocs
+        putMVar mdocs (mnewDoc:docs)
+        return mnewDoc
 
-shareDocument :: MonadIO m => DocumentHost -> DocumentAccess -> m (SharedKey)
+-- | Dokumentum megosztása, ha még nincs megosztva
+shareDocument :: MonadIO m =>
+                 DocumentHost ->
+--               ^^
+                 DocumentAccess -> m (SharedKey)
 shareDocument dh dacc = liftIO $ trace "sharing ..." $ do
   shareMap <- takeMVar $ shares dh
   --putMVar (shares dh) $ updatedMap ar doc shareMap
