@@ -37,13 +37,6 @@ data Revision = Revision
 
 type Version = Int
 
---átnevezni, ez valójában azt mondja meg, hogy
---aki küldei, melyik verzión van, és mivel van lemaradva
---az, akinek küldi
---newtype Revision = Revision ([PackedEdit], Version)
---  deriving (Show)
-
-
 data ChatMessage = ChatMessage
     { sender :: String
     , message :: String }
@@ -55,14 +48,7 @@ data UpdateResponse = UpdateResponse
     , rspChatVersion :: Version }
   deriving (Show)
   
-  {-
-data CleanContentResponse = UpdateResponse
-    { rspRevision :: Revision
-    , rspChatMessages :: [ChatMessage]
-    , rspChatVersion :: Version }
-  deriving (Show, Data, Typeable)
-  -}
-  
+
 data Request = Request
     { reqRevision :: Revision
     , reqChatName :: String
@@ -79,13 +65,11 @@ data ShareRequest = ShareRequest
 data ShareResponse = ShareResponse 
     { shareResponse_link :: String }
     
-
-
-
+{-
 data InitialCheckout = InitialCheckout
     { initialContent :: T.Text }
   deriving (Show)
-
+-}
 type MDocument = MVar Document
 type ShareMap = M.Map SharedKey DocumentAccess
 type MShareMap = MVar ShareMap

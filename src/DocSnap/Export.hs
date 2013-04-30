@@ -1,5 +1,4 @@
 --------------------------------------------------------------------------------
-{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------------------
@@ -21,18 +20,21 @@ import  qualified Data.Text as T
 import  Data.Aeson.TH
 --------------------------------------------------------------------------------
 import  DocSnap.Internal.Utilities (writeToRandomFile)
+import  DocSnap.Snap.Splices (bulletListSplice, HasHeist, SnapletISplice)
 import  DocSnap.Export.Converter
 import  DocSnap.Export.Converter.Backends.TxtConverter
 import  DocSnap.Export.Converter.Backends.HtmlConverter
 --------------------------------------------------------------------------------
 
 
+--------------------------------------------------------------------------------
 -- | Az aktív konverterek listája. Ide kell felvenni az újat, és automatikusan megjelenik 
 -- a weboldalon, az 'exporter' menüben, mint lehetséges formátum.
 converters :: [Converter]
 converters = [MkConverter TxtConverter, MkConverter HtmlConverter]
 
 
+--------------------------------------------------------------------------------
 -- | Exportálási kérés futtatása. Amennyiben nem jár sikerrel,
 -- kivételt dob.
 runExport :: ExportRequest     -- ^ export kérés
@@ -46,17 +48,15 @@ runExport (ExportRequest index) content = do
 
 --------------------------------------------------------------------------------
 -- | Exportálási kérés, a hálózaton keresztül érkezik.        
-data ExportRequest = ExportRequest
+newtype ExportRequest = ExportRequest
     { exportRequest_index :: Int }
     
 
-
 --------------------------------------------------------------------------------
 -- | Válasz az exportálási kérésre. Az url a létrejött fájlra mutat.
-data ExportResponse = ExportResponse
+newtype ExportResponse = ExportResponse
     { exportResponse_url :: String }
     
-
 
 --------------------------------------------------------------------------------
 -- | Tartalom exportálása véletlen nevű fájlba.
@@ -70,6 +70,7 @@ exportToRandomFile content (MkConverter converter) dir =
 
 --------------------------------------------------------------------------------
 -- | Az export menü dinamikus felépítését generálja a weboldalhoz.
+{-
 exportersSplice :: MonadIO m => m [H.Node]
 exportersSplice = return $ [H.Element "ul" [("id", "exportmenu")]
       (map menuItem (zip [0..] converters))]
@@ -78,6 +79,11 @@ exportersSplice = return $ [H.Element "ul" [("id", "exportmenu")]
     menuItem (idx, MkConverter converter) =
         H.Element "li" [("data-index", T.pack $ show idx )]
           [ H.TextNode $ T.pack $ displayName converter ]
+-}
+
+exportersSplice :: (HasHeist b) => SnapletISplice b
+exportersSplice = bulletListSplice "exportmenu" converters
+  (\(_, MkConverter conv) -> displayName conv)
 
 --------------------------------------------------------------------------------
 -- | JSON reprezentáció generálása.

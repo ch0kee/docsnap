@@ -31,32 +31,11 @@ import Control.Monad.Random --for random in STM
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad (forever, forM_)
 import Data.List (findIndex)
---we can use tvar for the map, since
---we dont expect document-create-overflow
-
---todo: we use parametrized types to lift side effects into user code
---by using 'a' instead of 'MVar'
 import DocSnap.Internal.Types
 import Application --leginkább a doclens miatt
 import Control.Concurrent.MVar
 
 import DocSnap.Internal.Utilities
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 --------------------------------------------------------------------------------
@@ -71,8 +50,11 @@ createDocument dh = do
         docs <- takeMVar mdocs
         putMVar mdocs (mnewDoc:docs)
         return mnewDoc
-        
--- inicializálás
+
+--------------------------------------------------------------------------------
+-- | Repository snaplet inicializálása. Ezt hívjuk meg az 'app' függvényben,
+-- létrehozza az üres tárolót.
+-- A Snaplet a State monádhoz hasonlóan viselkedik.
 repositoryInit :: SnapletInit b Repository
 repositoryInit = makeSnaplet "repository" "Repository Snaplet" Nothing $ do
     (dm,sm) <- liftIO $ (,) `liftM` newMVar [] `ap` newMVar M.empty
