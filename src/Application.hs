@@ -1,8 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
 ------------------------------------------------------------------------------
--- | This module defines our application's state type and an alias for its
--- handler monad.
+-- | Ez a modul definiálja az alkalmazás állapotát
 module Application where
 
 ------------------------------------------------------------------------------
@@ -13,16 +12,15 @@ import Snap.Snaplet.Auth
 import Snap.Snaplet.Session
 import Data.IORef
 import qualified Data.ByteString as B
-import Control.Monad.State (get, modify)--, put, modify)
+import Control.Monad.State (get, modify, gets)--, put, modify)
 
-import Internal.Types
+import DocSnap.Internal.Types
 
 ------------------------------------------------------------------------------
 data App = App
     { _heist :: Snaplet (Heist App)
     , _session :: Snaplet SessionManager
-    --, _revLens :: Snaplet (RevisionControl)
-    , _docHost :: Snaplet DocumentHost
+    , _repository :: Snaplet Repository
     }
 
 makeLenses ''App
@@ -30,9 +28,9 @@ makeLenses ''App
 instance HasHeist App where
   heistLens = subSnaplet heist
 
-instance HasDocumentHost (Handler b App) where
-  getDocumentHost = with docHost get
-  modifyDH f = with docHost (modify f)
+instance HasRepository (Handler b App) where
+  getRepository = with repository get
+  modifyRepository f = with repository (modify f)
 
 
 --instance HasRevisionControl (Handler App App) where

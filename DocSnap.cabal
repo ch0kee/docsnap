@@ -43,4 +43,15 @@ executable DocSnap
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Serialize DocSnapServer Internal.Types Exporter
+    other-modules:
+    
+    exposed-modules:
+      DocSnap.Serialize
+      DocSnap.Repository
+      DocSnap.Export
+      DocSnap.Export.Converter
+      DocSnap.Export.Converter.Backends.HtmlConverter
+      DocSnap.Export.Converter.Backends.TxtConverter
+      DocSnap.Internal.Types
+    
+    

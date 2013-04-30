@@ -8,14 +8,13 @@
 
 
 
-module Internal.Types where
+module DocSnap.Internal.Types where
 
 import qualified Data.Text as T
 import qualified Data.Map as M
 import  Control.Monad.Trans
 import Control.Concurrent.MVar
 
-import Exporter
 
 type Content = String
 type Length = Int
@@ -80,11 +79,7 @@ data ShareRequest = ShareRequest
 data ShareResponse = ShareResponse 
     { shareResponse_link :: String }
     
-data ExportRequest = ExportRequest
-    { exportRequest_index :: Int }
 
-data ExportResponse = ExportResponse
-    { exportResponse_url :: String }
 
 
 data InitialCheckout = InitialCheckout
@@ -99,7 +94,7 @@ newtype DocumentAccess = DocumentAccess (AccessRight, MDocument)
   deriving (Eq)
 
 
-data DocumentHost = DocumentHost
+data Repository = Repository
     { documents :: MVar [MDocument]
     , shares :: MVar ShareMap }
 
@@ -113,24 +108,13 @@ data Document = Document
 type SharedKey = T.Text
 type RevisionHistory = [Revision]
 
-class MonadIO m => HasDocumentHost m 
+class (MonadIO m) => HasRepository m 
   where
-    getDocumentHost :: m DocumentHost
-    modifyDH :: (DocumentHost -> DocumentHost) -> m ()
+    getRepository :: m Repository
+    modifyRepository :: (Repository -> Repository) -> m ()
     
 
 data Access = Denied | Granted DocumentAccess
---data DocumentAccess = DocumentAccess AccessRight MDocument
-
---withAccess :: Access -> (Document -> Document) -> IO Document
---withAccess Denied = return 
-
-
-data HtmlFormat = HtmlFormat
-instance ExportableFormat HtmlFormat
-  where
-    displayName = const "html file"
-    convert _ = id
 
 
 

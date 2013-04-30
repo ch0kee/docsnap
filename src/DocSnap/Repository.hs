@@ -5,7 +5,7 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module DocSnapServer where
+module DocSnap.Repository where
 
 import System.IO
 import    Snap.Snaplet
@@ -19,7 +19,7 @@ import  Control.Monad.Trans
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
-import Serialize 
+import DocSnap.Serialize 
 import Control.Concurrent.STM
 import qualified Control.Monad.State as S
 import Control.Monad (liftM, liftM2, liftM3, ap)
@@ -36,54 +36,34 @@ import Data.List (findIndex)
 
 --todo: we use parametrized types to lift side effects into user code
 --by using 'a' instead of 'MVar'
-import Internal.Types
+import DocSnap.Internal.Types
 import Application --leginkább a doclens miatt
 import Control.Concurrent.MVar
 
-logDSS :: (MonadIO m) => String -> m ()
-logDSS s = liftIO $ putStrLn ("** " ++ s)
-
--- hozzáférés dokumentumhoz megosztási linken keresztül
-access :: (MonadIO m) => DocumentHost -> SharedKey -> m Access
-access dh sk = liftIO $ do
-    shareMap <- readMVar (shares dh)
-    case M.lookup sk shareMap of
-        Just acc -> return $ Granted acc
-        Nothing  -> return Denied
-
--- inicializálás
-documentHostInit :: SnapletInit b DocumentHost
-documentHostInit = makeSnaplet "dochost" "DocumentHost Snaplet" Nothing $ do
---    (dm,sm) <- liftIO $ liftM2 (,) (newMVar []) (newMVar M.empty)
-    (dm,sm) <- liftIO $ (,) `liftM` newMVar [] `ap` newMVar M.empty
-    return $ DocumentHost dm sm
-
-{-
-tryAccessAs :: MonadIO m => DocumentHost -> SharedKey -> AccessRight ->  m (Maybe MDocument)
-tryAccessAs dh sk ar = liftIO $ do
-    putStrLn ("try access with sk=" ++ T.unpack sk)
-    shareMap <- readMVar (shares dh)
-    return $ case M.lookup sk shareMap of
-        Just acc -> trace "access granted" $ accessDocument acc ar
-        Nothing -> trace "no such access" $ Nothing
-  where
-    accessDocument :: DocumentAccess -> AccessRight -> Maybe MDocument
-    accessDocument (DocumentAccess (accr, doc)) r | accr == r = trace "access ok" $ Just doc
-    accessDocument _ _ = trace "wrong access" $ Nothing
--}      
+import DocSnap.Internal.Utilities
 
 
---véletlenszerű megosztókulcsok generálása  
-generateSharedKeys :: RandomGen g => g -> [SharedKey]
-generateSharedKeys g = map (T.pack . UUID.toString) (randoms g :: [UUID])
 
 
--- | Új, üres dokumentum
-emptyDocument :: Document
-emptyDocument = Document {revisions=[], chatLog=[]}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--REPOSITORY--------------------------------------------------------------------
 -- | Új dokumentum létrehozása
-createDocument :: MonadIO m => DocumentHost -> m (MDocument)
+createDocument :: MonadIO m => Repository -> m (MDocument)
 createDocument dh = do
     let mdocs = documents dh
     liftIO $ trace "creating..." $ do
@@ -91,7 +71,20 @@ createDocument dh = do
         docs <- takeMVar mdocs
         putMVar mdocs (mnewDoc:docs)
         return mnewDoc
+        
+-- inicializálás
+repositoryInit :: SnapletInit b Repository
+repositoryInit = makeSnaplet "repository" "Repository Snaplet" Nothing $ do
+    (dm,sm) <- liftIO $ (,) `liftM` newMVar [] `ap` newMVar M.empty
+    return $ Repository dm sm
 
+-- hozzáférés dokumentumhoz megosztási linken keresztül
+access :: (MonadIO m) => Repository -> SharedKey -> m Access
+access dh sk = liftIO $ do
+    shareMap <- readMVar (shares dh)
+    case M.lookup sk shareMap of
+        Just acc -> return $ Granted acc
+        Nothing  -> return Denied
 
 --véletlenszerű megosztókulcsok generálása  
 generateSharedKeys' :: IO [SharedKey]
@@ -99,7 +92,7 @@ generateSharedKeys' =  evalRandIO (getRandoms) >>= return . map (T.pack . UUID.t
 
 -- | Dokumentum megosztása, ha még nincs megosztva
 shareDocument :: (MonadIO m) =>
-                 DocumentHost
+                 Repository
               -> DocumentAccess 
               -> m (SharedKey)  -- ^ megosztási kulcs
 shareDocument dh dacc = liftIO $ trace "sharing ..." $ do
@@ -117,21 +110,21 @@ shareDocument dh dacc = liftIO $ trace "sharing ..." $ do
       Nothing -> (M.insert sk dacc shareMap, sk) --új, egyedi kulcs
       Just _  -> insertNewShare dacc shareMap moreSk --kulcsütközés
 
---todo: in UTILS
-locateMapKey :: Eq a => a -> Map k a -> Maybe k
-locateMapKey v m = locateMapKey' . dropWhile ((/=v) . snd)  $  M.toList m
-  where
-    locateMapKey' [] = Nothing
-    locateMapKey' (x:_) = Just (fst x)
 
-       
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--DOCUMENT----------------------------------------------------------------------
+-- | Új, üres dokumentum
+emptyDocument :: Document
+emptyDocument = Document {revisions=[], chatLog=[]}
+
+
 getRevisions :: MonadIO m => MDocument -> m [Revision]
 getRevisions mdoc = do
   logDSS "getting revisions"
   doc <- liftIO . readMVar $ mdoc
   logDSS "revisions gotten"
   return $ revisions doc
-
 
 --WARNING
 appendRevision :: MonadIO m => Revision -> MDocument -> m ()
@@ -141,6 +134,54 @@ appendRevision r mdoc = do
     doc <- takeMVar $ mdoc
     putMVar mdoc (doc {revisions=(revisions doc ++ [r])})
   logDSS "revision appended"
+
+-- rak [+2:ab|=3] abrak
+commit :: MonadIO m => MDocument -> Revision -> m Revision
+commit mdoc rev = do
+  logDSS "committing"
+  revs <- getRevisions mdoc --ezt meg a commitot atomi módon kell
+  resp <- commit' rev revs --és itt kell a sorbafűzést elvégezni
+  logDSS "committed"
+  return resp
+    where
+      commit' :: MonadIO m => Revision -> [Revision] -> m Revision
+      --checkout only todo:v == latestversion
+      commit' (Revision v []) revs = do
+        let retRev = seqMergeRevisions $ after v revs
+        return $ maybe (Revision v []) id retRev  
+      commit' r@(Revision v es) revs
+        | latestVersion revs == v = do --can commit
+            appendRevision (Revision (v+1) es) mdoc
+            return $ Revision (v+1) []
+        | otherwise = do --can not commit
+          let retRev = seqMergeRevisions $ after v revs  --ha ez Nothing, az hiba
+          return $ maybe (Revision v []) id retRev
+
+--chat üzenet küldése
+sendChatMessage :: Document -> ChatMessage -> Document
+sendChatMessage doc msg = doc {chatLog=withMessage msg (chatLog doc) }
+  where
+    withMessage msg [] = [(0, msg)]
+    withMessage msg l@((nr,_):_) = (nr+1, msg):l
+
+--modul: Document    
+--chat üzenetek fogadása adott verziótól kezdve
+receiveChatMessages :: Document -> Version -> (Version,[ChatMessage])
+receiveChatMessages doc v = receiveChatMessages' $ takeWhile ((>v)  . fst) $ chatLog doc
+  where
+    receiveChatMessages' [] = (v, [])
+    receiveChatMessages' l@(x:_) = (fst x, map snd l)
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--REVISION----------------------------------------------------------------------
+latestVersion :: [Revision] -> Version
+latestVersion [] = 0
+latestVersion rs = version (last rs)
+
+--változások adott verzió után
+after :: Version -> [Revision] -> [Revision]
+after v rs = dropWhile (\r -> (version r) <= v) rs
 
 
 compatible :: [PackedEdit] -> [PackedEdit] -> Bool
@@ -197,35 +238,8 @@ seqMergeRevisions revs = Just $ Revision {
     packEdit' (SI c:ur, p) = packEdit' (ur, I (c:[]):p)  
     
     packEdit' ([], p) = ([], p)
-
-
-latestVersion :: [Revision] -> Version
-latestVersion [] = 0
-latestVersion rs = version (last rs)
-
---változások adott verzió után
-after :: Version -> [Revision] -> [Revision]
-after v rs = dropWhile (\r -> (version r) <= v) rs
-
--- rak [+2:ab|=3] abrak
-commit :: MonadIO m => MDocument -> Revision -> m Revision
-commit mdoc rev = do
-  logDSS "committing"
-  revs <- getRevisions mdoc --ezt meg a commitot atomi módon kell
-  resp <- commit' rev revs --és itt kell a sorbafűzést elvégezni
-  logDSS "committed"
-  return resp
-    where
-      commit' :: MonadIO m => Revision -> [Revision] -> m Revision
-      --checkout only todo:v == latestversion
-      commit' (Revision v []) revs = do
-        let retRev = seqMergeRevisions $ after v revs
-        return $ maybe (Revision v []) id retRev  
-      commit' r@(Revision v es) revs
-        | latestVersion revs == v = do --can commit
-            appendRevision (Revision (v+1) es) mdoc
-            return $ Revision (v+1) []
-        | otherwise = do --can not commit
-          let retRev = seqMergeRevisions $ after v revs  --ha ez Nothing, az hiba
-          return $ maybe (Revision v []) id retRev
+          
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--TOOLS-------------------------------------------------------------------------
 

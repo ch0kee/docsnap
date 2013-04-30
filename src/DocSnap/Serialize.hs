@@ -1,12 +1,18 @@
+--------------------------------------------------------------------------------
 {-# LANGUAGE TemplateHaskell #-}
+--------------------------------------------------------------------------------
+-- | Ez a modul végzi a konverziót a hálózaton utazó adatok és a
+-- Haskell típusok között.
+-- Alapvetően az Aeson könyvtárra épül, amely sablonok segítségével
+-- automatikusan létrehozza a megfelelő átalakító függvényeket.
 
-module Serialize (
-  deserialize,
-  serialize
-) where
+module DocSnap.Serialize
+  ( deserialize
+  , serialize
+  ) where
 
 import  Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import  Internal.Types
+import  DocSnap.Internal.Types
 import  qualified Data.Text as T
 import  qualified Data.Aeson as A
 --import  qualified Data.Aeson.Generic as A
@@ -38,8 +44,6 @@ $(deriveJSON id ''UpdateResponse)
 $(deriveJSON id ''Request)
 $(deriveJSON (drop 14) ''ShareResponse)
 $(deriveJSON (drop 13) ''ShareRequest)
-$(deriveJSON (drop 14) ''ExportRequest)
-$(deriveJSON (drop 15) ''ExportResponse)
 
 test = Revision 10 [ I "proba", P 24, R 5]
 test2 = Revision 10 []
