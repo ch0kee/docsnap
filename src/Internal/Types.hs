@@ -73,7 +73,19 @@ data Request = Request
   
 data AccessRight = Author | Reader
   deriving (Eq)
-  
+
+data ShareRequest = ShareRequest
+    { shareRequest_type :: String}
+
+data ShareResponse = ShareResponse 
+    { shareResponse_link :: String }
+    
+data ExportRequest = ExportRequest
+    { exportRequest_index :: Int }
+
+data ExportResponse = ExportResponse
+    { exportResponse_url :: String }
+
 
 data InitialCheckout = InitialCheckout
     { initialContent :: T.Text }

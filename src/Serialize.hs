@@ -30,12 +30,16 @@ bsToLbs :: B.ByteString -> BL.ByteString
 bsToLbs = BL.pack . B.unpack
 
 -- | JSON reprezentációk automatikus generálása
+--todo: csak a szükségesek irányokat generáljuk
 $(deriveJSON id ''PackedEdit)
 $(deriveJSON id ''Revision)
 $(deriveJSON id ''ChatMessage)
 $(deriveJSON id ''UpdateResponse)
 $(deriveJSON id ''Request)
-
+$(deriveJSON (drop 14) ''ShareResponse)
+$(deriveJSON (drop 13) ''ShareRequest)
+$(deriveJSON (drop 14) ''ExportRequest)
+$(deriveJSON (drop 15) ''ExportResponse)
 
 test = Revision 10 [ I "proba", P 24, R 5]
 test2 = Revision 10 []

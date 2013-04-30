@@ -79,6 +79,38 @@ DocSnap.restoreSelection = function  () {
   }
 };
 
+DocSnap.showInformationDialog = function(dlgContent) {
+  if (!$('#dialog').length) {
+    $('body').prepend('<div id="dialog" style="white-space:pre" title="DocSnap">')  
+  }
+  $('#dialog').text(dlgContent);
+  
+//  $('body').prepend('<div id="dialog" style="white-space:pre" title="DocSnap">'+__dlgContent.replace('\\n','\n')+'</div>');
+  $( '#dialog' ).dialog({
+    autoOpen: true
+  , modal: true
+  , buttons: [ {text: "ok", click: function() {
+      $(this).dialog("close");
+      $(this).remove();
+    }}]
+  , draggable: true
+  , height: 'auto'
+  , width: 'auto'
+  , resizable: false
+  , dialogClass: 'no-close'
+  , open: function (event, ui) {
+    $('#dialog').css('overflow', 'hidden'); //scrollbar elrejtése
+  }
+  });
+  $('#dialog').focus();
+/*
+  $('#dialog').dialog('option', 'position', 'center');
+  $(window).resize(function() {
+    $('#dialog').dialog('option', 'position', 'center');
+  });*/
+};
+
+  
   
 DocSnap.showChatMessages = function (msgs) {
   for(var i = msgs.length-1; i >= 0; --i) {
@@ -111,7 +143,6 @@ DocSnap.sendAjaxCommand = function (command, arguments, onsuccess) {
 //@ megadott hivatkozás letöltésre kényszerítése
 DocSnap.downloadFile = function  (url) {
   if (!$('#__downloader').length) {
-    alert('hej');
     $('<iframe id="__downloader">').hide().appendTo('body');
   }
   $('#__downloader').attr('src', url);

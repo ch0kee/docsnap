@@ -77,18 +77,15 @@ handleOpen :: SharedKey -> AppHandler ()
 handleOpen sharedKey = trace "HANDLE_OPEN" $ do
     dh <- getDocumentHost
     acc <- access dh sharedKey
---    sharedKey <- getSharedKey >>= return . fromJust
-    --ha ez Nothing lenne, az hiba a Snap-ban vagy a kódban, mert csak
-    --akkor jövünk
-    --ide, ha fel van töltve ez a paraméter
     case acc of
       Denied -> notFoundDialog $ T.unpack sharedKey
-      Granted _ -> loadExistingDocument
+      Granted (DocumentAccess (right,_)) -> renderWithSplices "main"
+        [ ("heistscripts", javascriptsSplice "/static/js/" (scripts right) ) ]
   where
     notFoundDialog sk = renderErrorDialog
       ("The following document doesn't exist:\\n" ++ urlOnSite sk) "Ok"
-    loadExistingDocument = renderWithSplices "main"
-      [ ("heistscripts", javascriptsSplice "/static/js/" ["author", "sync"] ) ]
+    scripts Author = ["author", "sync"]
+    scripts Reader = ["sync"]
 
 sharePrefix = "http://localhost:8000/"
 
@@ -131,25 +128,19 @@ receiveChatMessages doc v = receiveChatMessages' $ takeWhile ((>v)  . fst) $ cha
     receiveChatMessages' l@(x:_) = (fst x, map snd l)
 
 -- Lekezeljuk az uj adatot
-handleContentUpdate :: DocumentAccess -> AppHandler ()
-handleContentUpdate (DocumentAccess (right, mdoc))= trace "HANDLE_CONTENT_UPDATE" $ do
---    dh <- getDocumentHost
---    mdoc <- accessAs dh Author
-    getParam "args" >>= maybeDenied (\d -> trace "handle_commit" $ handleCommit mdoc d)
-  where
-    handleCommit :: MDocument -> B.ByteString -> AppHandler ()
-    handleCommit mdoc cdata = do
-      case deserialize cdata of
-        Nothing -> trace "bad request data" $ error "bad request data"
-        Just (Request rev chatName chatBuffer chatVersion)  -> do
-          doc <- liftIO $ takeMVar mdoc
-          let doc' = foldl sendChatMessage doc $ map (ChatMessage chatName) chatBuffer
-              (newChatVersion,newChatMessages) = receiveChatMessages doc' chatVersion         
-          liftIO $ putMVar mdoc doc'
-          rev <- commit mdoc rev
-          let response = UpdateResponse rev newChatMessages newChatVersion
-          writeBS $ serialize response
-          logDSS ("sent " ++ bsToStr (serialize response)) 
+handleContentUpdate :: DocumentAccess -> Arguments -> AppHandler ()
+handleContentUpdate (DocumentAccess (right, mdoc)) requestData = trace "HANDLE_CONTENT_UPDATE" $ do
+    case deserialize requestData of
+      Nothing -> trace "bad request data" $ error "bad request data"
+      Just (Request rev chatName chatBuffer chatVersion)  -> do
+        doc <- liftIO $ takeMVar mdoc
+        let doc' = foldl sendChatMessage doc $ map (ChatMessage chatName) chatBuffer
+            (newChatVersion,newChatMessages) = receiveChatMessages doc' chatVersion         
+        liftIO $ putMVar mdoc doc'
+        rev <- commit mdoc rev
+        let response = UpdateResponse rev newChatMessages newChatVersion
+        writeBS $ serialize response
+        logDSS ("sent " ++ bsToStr (serialize response)) 
       
 
 
@@ -158,7 +149,7 @@ renderErrorDialog content button = renderDialog content button "/"
 renderDialog content button target = renderWithSplices "main"
     [ ("heistscripts", liftM2 (++) (vardeclSplice content button target) dialogSplice)]
   where
-    dialogSplice = javascriptsSplice "/static/js/" ["dialog"]
+    dialogSplice = javascriptsSplice "/static/js/" ["staticdialog"]
     vardeclSplice content button target = return $
       [ H.Element "script" []
         [ H.TextNode $ T.pack $ concat
@@ -186,20 +177,19 @@ handleNew = trace "HANDLE_NEW" $ do
     sk <- shareDocument dh $ DocumentAccess (Author, newDoc)
     redirect $ getAccessURI sk
 
-handleShare :: DocumentAccess -> AppHandler ()
-handleShare acc = trace "HANDLE_SHARE" $ do
-    shareType <- getParam "args"
-    case shareType of
-      Just "reader" -> handleReaderShare acc
-      Just "author" -> handleAuthorShare acc
-      _ -> return ()
+handleShare :: DocumentAccess -> Arguments -> AppHandler ()
+handleShare acc shareType = trace "HANDLE_SHARE" $ do
+    case deserialize shareType of
+      Just (ShareRequest "reader") -> handleReaderShare acc
+      Just (ShareRequest "author") -> handleAuthorShare acc
+      _ -> trace "INVALID REQUEST" return ()
 
 handleReaderShare :: DocumentAccess -> AppHandler ()
 handleReaderShare (DocumentAccess (right,mdoc)) = trace "HANDLE_READER_SHARE" $ do
     dh <- getDocumentHost
 --    doc <- accessAs dh Author
     sk <- shareDocument dh $ DocumentAccess (Reader, mdoc)
-    writeBS $ strToBs $ sharePrefix ++ T.unpack sk
+    writeBS $ serialize $ ShareResponse (sharePrefix ++ T.unpack sk)
     --return ()
 
 handleAuthorShare :: DocumentAccess -> AppHandler ()
@@ -210,7 +200,8 @@ handleAuthorShare (DocumentAccess (right,mdoc)) = trace "HANDLE_READER_SHARE" $ 
             dh <- getDocumentHost
 --    doc <- accessAs dh Author
             sk <- shareDocument dh $ DocumentAccess (Author, mdoc)
-            writeBS $ strToBs $ sharePrefix ++ T.unpack sk
+            logDSS $ "sending response"
+            writeBS $ serialize $ ShareResponse (sharePrefix ++ T.unpack sk)
     --return ()
 
     
@@ -219,8 +210,6 @@ handleAuthorShare (DocumentAccess (right,mdoc)) = trace "HANDLE_READER_SHARE" $ 
 
 suppressError :: AppHandler ()
 suppressError = return ()
-
-maybeRead = fmap fst . listToMaybe . reads
 
 
 exporters :: [Exporter]
@@ -239,21 +228,19 @@ getContent revs = maybe "" (concat . map extract . edits) $ seqMergeRevisions re
     extract (I str) = str
     extract _       = ""
 
-handleExport :: DocumentAccess -> AppHandler ()
-handleExport (DocumentAccess(_,mdoc)) = trace "HANDLE_EXPORT" $ do
---    dh <- getDocumentHost
---    doc <- accessAs dh Author
-    maybeArgs <- getParam "args"
-    maybe suppressError (callExporter mdoc) (maybeArgs >>= maybeReadBS >>= maybeExporter)
+handleExport :: DocumentAccess -> Arguments -> AppHandler ()
+handleExport (DocumentAccess(_,mdoc)) json = trace "HANDLE_EXPORT" $ do
+    case deserialize json of
+      Nothing -> suppressError
+      Just (ExportRequest index) -> 
+          maybe suppressError (callExporter mdoc) (listToMaybe (drop index exporters))
   where
-    maybeReadBS = maybeRead . bsToStr
-    maybeExporter = listToMaybe . flip drop exporters
     callExporter :: MDocument -> Exporter -> AppHandler()
-    callExporter doc exp = do --writeBS "/static/js/common/docsnap.js"
-        revs <- getRevisions doc
+    callExporter mdoc exp = do --writeBS "/static/js/common/docsnap.js"
+        revs <- getRevisions mdoc
         let content = getContent revs
-        path <- liftIO $ exportToRandomFile content exp "download"
-        writeBS $ strToBs path        
+        url <- liftIO $ exportToRandomFile content exp "download"
+        writeBS $ serialize $ ExportResponse url        
 
 handleInitialCheckout :: DocumentAccess -> AppHandler ()
 handleInitialCheckout (DocumentAccess(_,mdoc)) = trace "HANDLE_INITIAL_CHECKOUT_" $ do
@@ -266,23 +253,18 @@ handleInitialCheckout (DocumentAccess(_,mdoc)) = trace "HANDLE_INITIAL_CHECKOUT_
     writeBS $ serialize $ UpdateResponse curRev [] (-1)
     logDSS "initial checkout handled"
 
-
-handleCommand :: SharedKey -> ByteString -> AppHandler ()
-handleCommand sharedKey command = trace ("HANDLE_COMMAND "++ bsToStr command) $ do
+type Arguments = ByteString
+handleCommand :: SharedKey -> Maybe Arguments -> ByteString -> AppHandler ()
+handleCommand sharedKey maybeArgs command = trace ("HANDLE_COMMAND "++ bsToStr command) $ do
     dh <- getDocumentHost
     acc <- access dh sharedKey
     case acc of
       Denied      -> return () --showFatalErrorDialog() (browser error)
-      Granted granted -> handleCommand' granted command
-  where
-    handleCommand' :: DocumentAccess -> ByteString -> AppHandler ()
-    handleCommand' acc command = do
-        maybeArgs <- getParam "args" --maybe maybeArgs showFatalError
-        case command of
-          "init"   -> handleInitialCheckout acc
-          "update" -> handleContentUpdate acc
-          "share"  -> handleShare acc
-          "export" -> handleExport acc
+      Granted granted -> case command of
+          "init"   -> handleInitialCheckout granted
+          "update" -> handleContentUpdate granted (fromJust maybeArgs) --WARNING
+          "share"  -> handleShare granted (fromJust maybeArgs) --WARNING
+          "export" -> handleExport granted (fromJust maybeArgs) --WARNING
           _        -> return () --showFatalErrorDialog() (browser error)
 
 traceParams = getParams >>= \params -> logDSS $ "params=" ++ show params
@@ -295,13 +277,15 @@ routes = [ ("/", ifTop handleIndex)
          , ("/:sk/",ifTop (getParam "cmd"
                     >>= maybe
                           (sharedKey >>= handleOpen)
-                          (\cmd -> join (handleCommand `liftM` sharedKey `ap` return cmd))))
+                          (\cmd -> join (handleCommand `liftM` sharedKey `ap` args `ap` return cmd))))
          , ("/download/", serveDirectory "download")
          , ("/static/", rlogDSS "tryServeStatic" >> serveDirectory "static" >> rlogDSS "ok")
          ]
   where
     sharedKey :: AppHandler SharedKey
     sharedKey = getParam "sk" >>= return . decodeUtf8 . fromJust
+    args :: AppHandler (Maybe ByteString)
+    args = getParam "args"
     
 rlogDSS :: String -> AppHandler ()
 rlogDSS s = logDSS s

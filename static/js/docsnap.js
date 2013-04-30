@@ -27,8 +27,9 @@ $(document).ready(function() {
     .click(function() {
       var shareType = $(this).attr('data-type');
       console.log('share as '+shareType);
-      DocSnap.sendAjaxCommand("share", shareType, function(revision) {
-          alert(revision);
+      DocSnap.sendAjaxCommand("share", { type: shareType }, function(rsp) {
+        console.log(rsp);
+        DocSnap.showInformationDialog("Send this link to your friend:\n"+rsp.link);
       });
     });
 
@@ -52,10 +53,10 @@ $(document).ready(function() {
     .click(function() {
       var index = $(this).attr("data-index");
 //      window.location.href = '/export';
-      DocSnap.sendAjaxCommand("export", index, function(data) {
+      DocSnap.sendAjaxCommand("export", {index: parseInt(index) }, function(rsp) {
         //e.preventDefault();
        // alert(data);
-        downloadFile(data);
+        DocSnap.downloadFile(rsp.url);
       });
     });
        
