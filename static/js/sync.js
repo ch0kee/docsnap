@@ -1,5 +1,4 @@
 $(document).ready(function() {
-//  var diffEngine = new DiffEngine();
   var context =
     { syncContent:  ""
     , syncVersion: 0

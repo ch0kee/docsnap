@@ -6,7 +6,14 @@ var layout = null;
 
 //@ dokumentum előkészítése
 $(document).ready(function() {
-  $("#new").button();
+  $("#new").button()
+    .click(function() {
+      DocSnap.showQuestionDialog("Are you sure you want to create a new document?",
+        function() {
+          window.location.href = '/new';
+        });
+    });
+    
   $("#share").button()
     .click(function() {
       $("#exportmenu").hide();
