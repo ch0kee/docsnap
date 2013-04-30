@@ -13,9 +13,6 @@ module Site
   ) where
 
 --------------------------------------------------------------------------------
-import System.IO
-import  Control.Monad.Trans
-import           Control.Applicative hiding (empty)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Maybe
@@ -27,32 +24,23 @@ import           Snap.Snaplet.Heist
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
 import           Heist
-import qualified Heist.Interpreted as I
 import          Control.Monad.State
 --------------------------------------------------------------------------------
 import           Application
 import           DocSnap.Repository
 
-import qualified Text.XmlHtml as X
 
 import Snap.Snaplet.Session
 
-import DocSnap.Serialize
+import DocSnap.Serialize (serialize, deserialize)
 import DocSnap.Internal.Types
 import DocSnap.Internal.Utilities
-import Snap.Extras.SpliceUtils
 import Debug.Trace
 import Data.Monoid (mempty)
 import Control.Concurrent.MVar
-import System.FilePath --scriptSplice
+import DocSnap.Snap.Splices (javascriptsSplice, renderErrorDialog)
 import DocSnap.Export
-import DocSnap.Export.Converter
-import DocSnap.Export.Converter.Backends.TxtConverter
-import DocSnap.Export.Converter.Backends.HtmlConverter
-import System.FilePath
-import System.Directory
-
-import qualified Text.XmlHtml as H  --scriptSplice
+import DocSnap.Snap.Utilities (getServerURL)
 
 
 --------------------------------------------------------------------------------
@@ -80,15 +68,14 @@ handleOpen sharedKey = trace "HANDLE_OPEN" $ do
     rep <- getRepository
     acc <- access rep sharedKey
     case acc of
-      Denied -> notFoundDialog $ T.unpack sharedKey
+      Denied -> notFoundDialog sharedKey
       Granted (DocumentAccess (right,_)) -> renderWithSplices "main"
         [ ("heistscripts", javascriptsSplice "/static/js/" (scripts right) ) ]
   where
-    notFoundDialog sk = renderErrorDialog
-      ("The following document doesn't exist:\\n" ++ urlOnSite sk) "ok"
+    notFoundDialog sk = getServerURL sk >>= \url -> 
+      renderErrorDialog ("The following document doesn't exist:\\n" ++ T.unpack url) "ok"
     scripts Author = ["author", "sync"]
     scripts Reader = ["sync"]
-
 
 --------------------------------------------------------------------------------
 -- | Új dokumentum - kezelő. Akkor fut le, amikor a felhasználó új dokumentum
@@ -165,20 +152,20 @@ handleAjaxShare acc shareType = trace "HANDLE_SHARE" $ do
 
 handleAjaxReaderShare :: DocumentAccess -> AppHandler ()
 handleAjaxReaderShare (DocumentAccess (right,mdoc)) = trace "HANDLE_READER_SHARE" $ do
-    url <- maybe `liftM` return "<server-url>" `ap` return bsToStr `ap` withRequest (return . getHeader "Origin")
     dh <- getRepository
     sk <- shareDocument dh $ DocumentAccess (Reader, mdoc)
-    writeBS $ serialize $ ShareResponse (url ++ T.unpack sk)
+    url <- getServerURL sk 
+    writeBS $ serialize $ ShareResponse $ T.unpack url
 
 handleAjaxAuthorShare :: DocumentAccess -> AppHandler ()
 handleAjaxAuthorShare (DocumentAccess (right,mdoc)) = trace "HANDLE_READER_SHARE" $ do
-    url <- maybe `liftM` return "<server-url>" `ap` return bsToStr `ap` withRequest (return . getHeader "Origin")
     case right of
         Reader -> return () --show generalfaultdialog()
         Author -> do
             dh <- getRepository
             sk <- shareDocument dh $ DocumentAccess (Author, mdoc)
-            writeBS $ serialize $ ShareResponse (url ++ T.unpack sk)
+            url <- getServerURL sk 
+            writeBS $ serialize $ ShareResponse $ T.unpack url
 
 
 --------------------------------------------------------------------------------
@@ -209,23 +196,10 @@ handleAjaxExport (DocumentAccess(_,mdoc)) json = trace "HANDLE_EXPORT" $ do
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-sharePrefix = "http://localhost:8000/"
 
-urlOnSite s = sharePrefix ++ s
-
---data Insert = Insert { index :: Int, content :: String }
---  deriving (Show)
 
 bsToStr :: B.ByteString -> String
 bsToStr =  T.unpack . decodeUtf8
-
-
-
- 
-
-
-
---traceParams = getParams >>= \params -> logDSS $ "params=" ++ show params
 
   
 -- | The application's routes.
@@ -257,38 +231,6 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     return $ App h s r
 
 
-
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---SNAP modul
-javascriptsSplice :: HasHeist b => String -> [FilePath] -> SnapletISplice b
-javascriptsSplice prefix scripts = return $ map (includeJS prefix) scripts 
-  where
-    includeJS :: String -> FilePath -> H.Node
-    includeJS prefix script = H.Element "script" [("src", T.pack $ prefix ++ script ++ ".js")] []
-
-renderErrorDialog :: HasHeist b => String -> String -> Handler b v ()
-renderErrorDialog content button = renderDialog content button "/"
-
-renderDialog :: HasHeist b => String -> String -> String -> Handler b v ()
-renderDialog content button target = renderWithSplices "main"
-    [ ("heistscripts", liftM2 (++) (vardeclSplice content button target) dialogSplice)]
-  where
-    dialogSplice :: HasHeist b => SnapletISplice b
-    dialogSplice = javascriptsSplice "/static/js/" ["staticdialog"]
-    
-    vardeclSplice :: HasHeist b => String -> String -> String -> SnapletISplice b
-    vardeclSplice content button target = return $
-      [ H.Element "script" []
-        [ H.TextNode $ T.pack $ concat
-          [ "var __dlgContent=\""
-          , content
-          ,"\",__dlgButton=\""
-          , button
-          , "\",__dlgTarget=\""
-          , target
-          , "\";" ] ] ]
 
 
 

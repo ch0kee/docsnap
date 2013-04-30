@@ -1,7 +1,5 @@
 --------------------------------------------------------------------------------
-{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------------------
 -- | Splice konstruktorok a Snap keretrendszerhez.
 -- Ezek azok a kis "szeletek", amiket be lehet szúrni a Html
@@ -42,8 +40,11 @@ bulletListSplice ulid items text =
       
       
 --------------------------------------------------------------------------------
--- | JavaScript \<script> Tag Splice
-javascriptsSplice :: HasHeist b => String -> [FilePath] -> SnapletISplice b
+-- | JavaScript \<script> hivatkozások beszúrása.
+javascriptsSplice :: (HasHeist b)
+                  => String       -- ^ a szkripteket fájlokat tartalmazó mappa
+                  -> [FilePath]   -- ^ szkriptek .js kiterjesztés nélkül 
+                  -> SnapletISplice b
 javascriptsSplice prefix scripts = return $ map (includeJS prefix) scripts 
   where
     includeJS :: String -> FilePath -> H.Node
@@ -53,14 +54,14 @@ javascriptsSplice prefix scripts = return $ map (includeJS prefix) scripts
 --------------------------------------------------------------------------------
 -- | Olyan modális dialog Splice, amit ha a felhasználó elfogadott,
 -- visszairányítjuk a kezdőlapra
-renderErrorDialog :: HasHeist b => String -> String -> Handler b v ()
+renderErrorDialog :: (HasHeist b) => String -> String -> Handler b v ()
 renderErrorDialog content button = renderDialog content button "/"
 
 
 --------------------------------------------------------------------------------
 -- | Tetszőleges modális párbeszédablak, amely egy megadott url-re irányítja
 -- át a felhasználót az elfogadása után.
-renderDialog :: HasHeist b => String -> String -> String -> Handler b v ()
+renderDialog :: (HasHeist b) => String -> String -> String -> Handler b v ()
 renderDialog content button target = renderWithSplices "main"
     [ ("heistscripts", liftM2 (++) (vardeclSplice content button target) dialogSplice)]
   where

@@ -31,12 +31,12 @@
     <div class="ui-layout-north">
       <div id="toolbar" class="ui-widget-header ui-corner-all" >    
         <span class="bigbuttons">  
-          <div id="new">new</div>
-          <div id="share">share</div>
-          <div id="export">export</div>
+          <div id="new">New</div>
+          <div id="share">Share</div>
+          <div id="export">Download</div>
         </span>
-        <div id="bold">bold</div>
-        <div id="italic">italic</div>
+        <div id="bold"><b>bold</b></div>
+        <div id="italic"><i>italic</i></div>
       </div>
     </div>
     <div class="ui-layout-center">
