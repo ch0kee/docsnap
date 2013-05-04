@@ -1,9 +1,54 @@
 
 //edit script iterator
-function ESIterator (es) {
+function ESIterator1 (baseString, editScript) {
+  this._index = 0;
+  this._es = editScript;
+  this._baseString = baseString;
+}
+
+//@ iterátor léptetése
+ESIterator1.prototype.advance =  function () {
+  ++this._index;
+};
+
+ESIterator1.prototype.value = function() {
+  if (this._index >= this._es.length) {
+    //@ maradék
+    var rest = this._baseString;
+    this._baseString = ""; 
+    return rest;
+  }
+
+  if(!!( this._es[ this._index ].I )) {
+    //@beszúrunk
+    return this._es[ this._index ].I;
+  } else if (!!( this._es[ this._index ].R )) {
+    //@ baseString = drop R baseString
+    this._baseString = this._baseString.slice( this._es[ this._index ].R );
+    return "";
+//    this._baseString.
+  } else if (!!( this._es[ this._index ].P )) {
+    //@ keep = take P baseString
+    var keep = this._baseString.slice(0, this._es[ this._index ].P);
+    this._baseString = this._baseString.slice( this._es[ this._index ].P );
+    return keep;
+  }
+};
+
+//@ end of script
+ESIterator1.prototype.eos = function() {
+  return this._baseString.length == 0 && this._index >= this._es.length;
+};
+
+
+
+
+
+//edit script iterator
+function ESIterator (editScript) {
   this._index = 0;
   this._resetCharCounter();
-  this._es = es;
+  this._es = editScript;
 }
 
 ESIterator.prototype._resetCharCounter = function() {
@@ -14,16 +59,18 @@ ESIterator.prototype.isEnd = function() {
   return this._index >= this._es.length;
 };
 
+//@ nem lehet insert vagy remove, ha vége van a módosításoknak
 ESIterator.prototype.inserting = function () {
-  return this._es[ this._index ].I !== undefined;
+  return !this.isEnd() && this._es[ this._index ].I !== undefined;
 };
 
 ESIterator.prototype.removing = function () {
-  return this._es[ this._index ].R !== undefined;
+  return !this.isEnd() && this._es[ this._index ].R !== undefined;
 };
 
+//@ viszont ha nincs több módosítás, akkor preserve van (megőrzés)
 ESIterator.prototype.preserving = function () {
-  return this._es[ this._index ].P !== undefined;
+  return this.isEnd() || this._es[ this._index ].P !== undefined ;
 };
 
 ESIterator.prototype.value = function() {
@@ -31,30 +78,22 @@ ESIterator.prototype.value = function() {
   return this._es[ this._index ].I;
 };
 
+//@ törlendő/megőrzendő karakterek száma
+//@ beszúrásra 0-t add vissza
+ESIterator.prototype.count = function() {
+  return (this._es[ this._index ].R || this._es[ this._index ].P || 0);
+}
+
+//@ iterátor léptetése
 ESIterator.prototype.advance =  function () {
   if (this.isEnd()) {
-    alert('error, already isEnd()');
     return;
   }
-  
-  if (this.inserting()) {
+  if (this._charCounter >= this.count()) {
+    this._resetCharCounter();
     ++this._index;
   } else {
-    if (this.removing()) {
-      if (this._charCounter >= this._es[ this._index ].R) {
-        this._resetCharCounter();
-        ++this._index;
-      } else {
-        ++this._charCounter;
-      }
-    } else if (this.preserving()) {
-      if (this._charCounter >= this._es[ this._index ].P) {
-        this._resetCharCounter();
-        ++this._index;
-      } else {
-        ++this._charCounter;
-      }    
-    }
+    ++this._charCounter;
   }
 };
 
@@ -65,14 +104,16 @@ DocSnap.DiffEngine.executeES1 = function(content, ses) {
 
   var result = "";
   for(var i = 0; !s.isEnd();) {
-    while (!s.isEnd() && s.inserting()) {
+    //@ amíg van mit beszúrni, tegyünk úgy
+    while (s.inserting()) {
       result = result + s.value();
       s.advance();
     }
-
-    if (!s.isEnd() && i < content.length) {
-      var keep = s.preserving();
-      if (keep) {
+    
+    //c ha még nem értünk a végére
+    if (i < content.length) {
+      //@ őrizzük meg
+      if (s.preserving()) {
         result += content[i];
       }
       ++i;
@@ -81,6 +122,14 @@ DocSnap.DiffEngine.executeES1 = function(content, ses) {
   }
   return result;
 };
+
+DocSnap.DiffEngine.executeES1v2 = function(content, es) {
+  var result = "";
+  for(var s = new ESIterator1(content, es); !s.eos(); s.advance()) {
+    result += s.value();
+  }
+  return result;
+}
 
 //ses1-ben lévő insert előlrébb kerül be ugyanazon indexen!
 DocSnap.DiffEngine.executeES2 = function(content, ses1, ses2) {
@@ -91,18 +140,17 @@ DocSnap.DiffEngine.executeES2 = function(content, ses1, ses2) {
   var result = "";
   for(var i = 0; !s1.isEnd() || !s2.isEnd();) {
     //bedaraljuk a fuggo inserteket
-    while (!s1.isEnd() && s1.inserting()) {
+    while (s1.inserting()) {
       result = result + s1.value();
       s1.advance();
     }
-    while (!s2.isEnd() && s2.inserting()) {
+    while (s2.inserting()) {
       result = result + s2.value();
       s2.advance();
     }
 
-    if (!s1.isEnd() && !s2.isEnd() && i < content.length) {
-      var keep = s1.preserving() && s2.preserving();
-      if (keep) {
+    if (i < content.length) {
+      if (s1.preserving() && s2.preserving()) {
         result += content[i];
       }
       ++i;

@@ -40,8 +40,10 @@ import Data.Monoid (mempty)
 import Control.Concurrent.MVar
 import DocSnap.Snap.Splices (javascriptsSplice, renderErrorDialog)
 import DocSnap.Export
+import DocSnap.Formatting (formattingSplice, cssSplice)
 import DocSnap.Snap.Utilities (getServerURL)
-
+import  Snap.Snaplet.MongoDB
+import Database.MongoDB.Connection
 
 --------------------------------------------------------------------------------
 -- | Főoldal, kezdőlap - kezelő. Ez a függvény fut le akkor, ha a felhasználó
@@ -171,7 +173,7 @@ handleAjaxAuthorShare (DocumentAccess (right,mdoc)) = trace "HANDLE_READER_SHARE
 --------------------------------------------------------------------------------
 -- | Exportálás txt\/html\/stb. formátumokba - kezelő. A weboldalon az 'export'
 -- gombhoz tartozik ez a kezelő. Feladata a választott formátumnak megfelelő
--- fájl előállítása, és egy letöltési kérelem küldése a felhasználónak.
+-- fájl előállítása, és az URL visszaküldése a felhasználónak.
 -- Az export alrendszer működéséről bővebben lásd az Export modult.
 handleAjaxExport :: DocumentAccess -> Arguments -> AppHandler ()
 handleAjaxExport (DocumentAccess(_,mdoc)) json = trace "HANDLE_EXPORT" $ do
@@ -219,6 +221,13 @@ routes = [ ("/", ifTop handleIndex)
     args :: AppHandler (Maybe B.ByteString)
     args = getParam "args"
     
+    {-
+toolbarSplice = [ Button "New"
+                , Button "Share"
+                , DropButton "Export" [Button "txt]
+      -}          
+                
+    
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
 --    wrapSite (\site -> logHandlerStart >> traceParams >> site >> logHandlerFinished)
@@ -226,9 +235,10 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     s <- nestSnaplet "sess" session $
            initCookieSessionManager "site_key.txt" "sess" (Just 3600)
     r <- nestSnaplet "repository" repository $ repositoryInit
+    d <- nestSnaplet "database" database $ mongoDBInit 10 (host "127.0.0.1") "Snaplet-MongoDB"
     addRoutes routes
-    addSplices [("exporters", exportersSplice)]
-    return $ App h s r
+    addSplices [ ("exporters", exportersSplice), ("formatting", formattingSplice), ("heiststyles", cssSplice)]
+    return $ App h s r d
 
 
 

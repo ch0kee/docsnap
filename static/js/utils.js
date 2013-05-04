@@ -81,14 +81,14 @@ DocSnap.restoreSelection = function  () {
 
 //@ Információs párbeszédablak
 DocSnap.showInformationDialog = function(bodyText) {
-  this.showDialog(bodyText, [ {text: "ok", click: function(){} } ]);
+  this.showDialog(bodyText, [ {text: "Ok", click: function(){} } ]);
 };
 
 //@ Eldöntendő kérdés párbeszédablak
 DocSnap.showQuestionDialog = function(bodyText, onYes) {
   this.showDialog(bodyText,
-    [ {text: "yes", click: onYes }
-    , {text: "no", click: function(){} } ]);
+    [ {text: "Yes", click: onYes }
+    , {text: "No", click: function(){} } ]);
 };
 
 //@ Általános párbeszédablak
@@ -105,7 +105,7 @@ DocSnap.showDialog = function(bodyText, actions) {
     }});
   });
   
-  if (!$('#dialog').length) {
+ if (!$('#dialog').length) {
     $('body').prepend('<div id="dialog" style="white-space:pre" title="DocSnap">')  
   }
   $('#dialog').text(bodyText);

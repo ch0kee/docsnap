@@ -13,7 +13,7 @@ import Snap.Snaplet.Session
 import Data.IORef
 import qualified Data.ByteString as B
 import Control.Monad.State (get, modify, gets)--, put, modify)
-
+import Snap.Snaplet.MongoDB
 import DocSnap.Internal.Types
 
 ------------------------------------------------------------------------------
@@ -21,12 +21,16 @@ data App = App
     { _heist :: Snaplet (Heist App)
     , _session :: Snaplet SessionManager
     , _repository :: Snaplet Repository
+    , _database :: Snaplet MongoDB
     }
 
 makeLenses ''App
 
 instance HasHeist App where
   heistLens = subSnaplet heist
+
+instance HasMongoDB App where
+   getMongoDB app = view snapletValue (view database app)
 
 instance HasRepository (Handler b App) where
   getRepository = with repository get

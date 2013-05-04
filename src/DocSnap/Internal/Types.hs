@@ -79,7 +79,7 @@ newtype DocumentAccess = DocumentAccess (AccessRight, MDocument)
 
 
 data Repository = Repository
-    { documents :: MVar [MDocument]
+    { documents :: MVar [MVar Document]
     , shares :: MVar ShareMap }
 
 

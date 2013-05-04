@@ -16,16 +16,16 @@ $(document).ready(function() {
 
     if (DocSnap.__CANCOMMIT) {
       DocSnap.__sentContent = DocSnap.getActualContent();    
-      console.log('old: ['+context.syncContent+']');
+   //   console.log('old: ['+context.syncContent+']');
       request.reqRevision.edits = DocSnap.collectEditsSince(context.syncContent);
-      console.log('actual: ['+DocSnap.getActualContent()+']');
+   //   console.log('actual: ['+DocSnap.getActualContent()+']');
     } else {
       request.reqRevision.edits = [];
     }
-    console.log('synchronizeContent()::sending: ' + JSON.stringify(request));
+ //   console.log('synchronizeContent()::sending: ' + JSON.stringify(request));
   
     DocSnap.sendAjaxCommand("update", request, function(response) {
-      console.log('synchronizeContent()::received ' + JSON.stringify(response));
+  //    console.log('synchronizeContent()::received ' + JSON.stringify(response));
 
       DocSnap.showChatMessages(response.rspChatMessages);
       context.syncChatVersion = response.rspChatVersion;
@@ -76,7 +76,7 @@ $(document).ready(function() {
   
   $('input[name="message"]').keypress(function(e) {
     if (e.which == 13) {
-      console.log('chat: '+$('input[name="message"]').val());
+ //     console.log('chat: '+$('input[name="message"]').val());
       context.syncChatBuffer.push($('input[name="message"]').val());
       $('input[name="message"]').val('');
       return false; 
@@ -88,7 +88,7 @@ $(document).ready(function() {
     //start loading progress bar
     DocSnap.sendAjaxCommand("init", null, function(response) {
       context.syncContent = "";
-      console.log('initialCheckout()::received ' + JSON.stringify(response));
+//      console.log('initialCheckout()::received ' + JSON.stringify(response));
       
       var revision = response.rspRevision;
       var srvVersion = revision.version;
