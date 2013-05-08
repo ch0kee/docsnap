@@ -3,5 +3,6 @@
 /log/error.log
 /doc/
 /dist/
+/.dist-buildwrapper/
 /docsnap/
 *~
