@@ -1,6 +1,5 @@
 --------------------------------------------------------------------------------
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE EmptyDataDecls #-}
@@ -43,7 +42,6 @@ import qualified Data.ByteString as B
 import    Data.IORef
 import    Data.Map (Map)
 import qualified Data.Map as M
-import Data.Aeson.TH
 import qualified Data.Aeson as A
 import  Control.Monad.Trans
 import Data.ByteString (ByteString)
@@ -68,12 +66,10 @@ import  Data.Aeson.TH
 
 import DocSnap.Internal.Utilities
 --------------------------------------------------------------------------------
-
+import DocSnap.Repository.Types
 
 --------------------------------------------------------------------------------
--- | Repository snaplet inicializálása. Ezt hívjuk meg az 'app' függvényben.
--- Létrehozza az üres tárolót.
--- A Snapletek a State monádhoz hasonlóan viselkednek.
+-- | Repository snaplet inicializálása.
 repositoryInit :: SnapletInit b Repository
 repositoryInit = makeSnaplet "repository" "Repository Snaplet" Nothing $ do
     (dm,sm) <- liftIO $ (,) `liftM` newMVar [] `ap` newMVar M.empty
@@ -258,124 +254,6 @@ seqMergeRevisions revs = Just $ Revision {
     
     packEdit' ([], p) = ([], p)
   
---------------------------------------------------------------------------------
-type Content = String
-type Length = Int
-type Count = Int
-
-
-data SingleEdit = SI Char | SP | SR
-  deriving (Show)
-
-
---------------------------------------------------------------------------------
--- | Dokumentum revízió
-data Revision = Revision
-    { version::Version
-    , edits::[PackedEdit] }
-  deriving (Show)
-
-type Version = Int
-
---------------------------------------------------------------------------------
--- | Chat üzenet
-data ChatMessage = ChatMessage
-    { sender :: String
-    , message :: String }
-  deriving (Show)
-
---------------------------------------------------------------------------------
--- | Válasz objektum a frissítési kérelemre  
-data UpdateResponse = UpdateResponse
-    { rspRevision :: Revision
-    , rspChatMessages :: [ChatMessage]
-    , rspChatVersion :: Version }
-  deriving (Show)
-  
---------------------------------------------------------------------------------
--- | Frissítési kérelem típusa  
-data Request = Request
-    { reqRevision :: Revision
-    , reqChatName :: String
-    , reqChatBuffer :: [String]
-    , reqChatVersion :: Version }
-  deriving (Show)
-  
---------------------------------------------------------------------------------
--- | Hozzáférési szint
-data AccessRight = Author | Reader
-  deriving (Eq)
-
---------------------------------------------------------------------------------
--- | Megosztási kérelem
-data ShareRequest = ShareRequest
-    { shareRequest_type :: String}
-
---------------------------------------------------------------------------------
--- | Megosztási link
-data ShareResponse = ShareResponse 
-    { shareResponse_link :: String }
-    
-{-
-data InitialCheckout = InitialCheckout
-    { initialContent :: T.Text }
-  deriving (Show)
--}
-type MDocument = MVar Document
-type ShareMap = M.Map SharedKey DocumentAccess
-type MShareMap = MVar ShareMap
-
---------------------------------------------------------------------------------
--- | Rögzített hozzáférési szintű dokumentum hozzáférés
-newtype DocumentAccess = DocumentAccess (AccessRight, MDocument)  
-  deriving (Eq)
-
---------------------------------------------------------------------------------
--- | Hozzáférés
-data Access = Denied                  -- ^ megtagadott hozzáférés
-            | Granted DocumentAccess  -- ^ engedélyezett hozzáférés
-
---------------------------------------------------------------------------------
--- | A tároló típusa
-data Repository = Repository
-    { documents :: MVar [MVar Document]
-    , shares :: MVar ShareMap }
-
-
-type ChatLog = [ChatMessage]
-
---------------------------------------------------------------------------------
--- | Dokumentum típus
-data Document = Document
-    { revisions :: [Revision]
-    , chatLog :: [(Int, ChatMessage)] }
-
-type SharedKey = T.Text
-type RevisionHistory = [Revision]  
-
---------------------------------------------------------------------------------
--- | Segédosztály a Snaplet kényelmesebb használata céljából        
-class (MonadIO m) => HasRepository m 
-  where
-    getRepository :: m Repository
-    modifyRepository :: (Repository -> Repository) -> m ()
-    
-
-    
---------------------------------------------------------------------------------
-{- nem használt definíciók, későbbi fejlesztéshez fenntartva 
-compatible :: [PackedEdit] -> [PackedEdit] -> Bool
-compatible = undefined -- True
--}
-
---------------------------------------------------------------------------------
--- | Szerkesztéslánc egy eleme
-data PackedEdit =
-    I String      -- ^ Beszúr <String>
-  | P Int         -- ^ Helybenhagy n karaktert
-  | R Int         -- ^ Töröl n karaktert
-  deriving (Show)
-
 
 _P 0 rest = rest
 _P n rest = (P n:rest)
@@ -396,17 +274,3 @@ seqMergeNew (P n:ls) (R m:rs) = R k: seqMergeNew (_P (n-k) ls) (_R (m-k) rs)
 seqMergeNew (I s:ls) (P m:rs) = (I (take m s)):seqMergeNew (_I (drop m s) ls) (_P (m-(length s)) rs)
 seqMergeNew (I s:ls) (R m:rs) = seqMergeNew (_I (drop m s) ls) (_R (m-(length s)) rs)
 seqMergeNew l _ = l
-{-
-parallelMerge :: (Revision, Revision) -> (Revision, Revision)
-parallelMerge (Revision v1 e1, Revision v2 e2) = undefined
--}
-
---------------------------------------------------------------------------------
--- | JSON reprezentációk automatikus generálása    
-$(deriveJSON id ''PackedEdit)
-$(deriveJSON id ''Revision)
-$(deriveJSON id ''ChatMessage)
-$(deriveJSON id ''UpdateResponse)
-$(deriveJSON id ''Request)
-$(deriveJSON (drop 14) ''ShareResponse)
-$(deriveJSON (drop 13) ''ShareRequest)
