@@ -30,7 +30,6 @@ writeToRandomFile dir content = do
     generateRandomDigits = evalRandIO (getRandomRs (48,57)) >>= return . map chr
 
 
-
 locateMapKey :: Eq a => a -> M.Map k a -> Maybe k
 locateMapKey v m = locateMapKey' . dropWhile ((/=v) . snd)  $  M.toList m
   where

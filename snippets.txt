@@ -1,6 +1,0 @@
-data Sem = Sem (MVar Int) (MVar Int)
-newSem :: Int -> IO Sem
-newSem initial = liftM2 Sem (newMVar initial) newEmptyMVar
-
-
-

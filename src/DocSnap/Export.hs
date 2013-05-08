@@ -2,9 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------------------
--- | Minden, az IExporter osztályt megvalósító típusEbben a modulban találhatóak
--- az elkészült tartalmak tetszőleges
--- formátumba történő kiexportálásához végző típusok
+-- | Minden, a Convertert megvalósító típuson keresztül exportálható
+-- a dokumentum.
 module DocSnap.Export
   ( runExport
   , exportersSplice
@@ -36,13 +35,13 @@ converters = [MkConverter TxtConverter, MkConverter HtmlConverter]
 
 --------------------------------------------------------------------------------
 -- | Exportálási kérés futtatása. Amennyiben nem jár sikerrel,
--- kivételt dob.
+-- egy üres linket küld vissza.
 runExport :: ExportRequest     -- ^ export kérés
           -> String            -- ^ exportálandó tartalom
           -> IO ExportResponse -- ^ létrejött fájl
 runExport (ExportRequest index) content = do
     case listToMaybe (drop index converters) of
-      Nothing        -> error "" --throw
+      Nothing        -> return $ ExportResponse ""
       Just converter -> ExportResponse `fmap` exportToRandomFile content converter "download"
 
 
@@ -70,17 +69,6 @@ exportToRandomFile content (MkConverter converter) dir =
 
 --------------------------------------------------------------------------------
 -- | Az export menü dinamikus felépítését generálja a weboldalhoz.
-{-
-exportersSplice :: MonadIO m => m [H.Node]
-exportersSplice = return $ [H.Element "ul" [("id", "exportmenu")]
-      (map menuItem (zip [0..] converters))]
-  where
-    menuItem :: (Int, Converter) -> H.Node
-    menuItem (idx, MkConverter converter) =
-        H.Element "li" [("data-index", T.pack $ show idx )]
-          [ H.TextNode $ T.pack $ displayName converter ]
--}
-
 exportersSplice :: (HasHeist b) => SnapletISplice b
 exportersSplice = bulletListSplice "exportmenu" converters
   (\(_, MkConverter conv) -> displayName conv)

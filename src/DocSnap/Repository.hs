@@ -1,12 +1,42 @@
+--------------------------------------------------------------------------------
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+--------------------------------------------------------------------------------
+-- | A verziókezelés implementációja található ebben a modulban, illetve a
+-- használatához szükséges interfész.
+module DocSnap.Repository
+  ( repositoryInit
+  , createDocument
+  , access
+  , shareDocument
+  , seqMergeRevisions
+  , getRevisions
+  , update
+  , receiveChatMessages
+  , sendChatMessage
+  , Repository (..)
+  , Document (..)
+  , HasRepository
+  , getRepository
+  , modifyRepository
+  , PackedEdit (..)
+  , SharedKey
+  , ChatMessage (..)
+  , DocumentAccess (..)
+  , Access(..)
+  , Revision(..)
+  , ShareRequest(..)
+  , ShareResponse(..)
+  , AccessRight(..)
+  , Request(..)
+  , UpdateResponse(..)
+  ) where
 
-module DocSnap.Repository where
-
+--------------------------------------------------------------------------------
 import System.IO
 import    Snap.Snaplet
 import qualified Data.ByteString as B
@@ -32,58 +62,68 @@ import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad (forever, forM_)
 import Data.List (findIndex)
 import DocSnap.Internal.Types
-import Application --leginkább a doclens miatt
+--import Application      -- repository miatt
 import Control.Concurrent.MVar
+import  Data.Aeson.TH
 
 import DocSnap.Internal.Utilities
+--------------------------------------------------------------------------------
 
 
 --------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---REPOSITORY--------------------------------------------------------------------
--- | Új dokumentum létrehozása
-createDocument :: MonadIO m => Repository -> m (MDocument)
-createDocument dh = do
-    let mdocs = documents dh
-    liftIO $ trace "creating..." $ do
-        mnewDoc <- newMVar emptyDocument
-        docs <- takeMVar mdocs
-        putMVar mdocs (mnewDoc:docs)
-        return mnewDoc
-
---------------------------------------------------------------------------------
--- | Repository snaplet inicializálása. Ezt hívjuk meg az 'app' függvényben,
--- létrehozza az üres tárolót.
--- A Snaplet a State monádhoz hasonlóan viselkedik.
+-- | Repository snaplet inicializálása. Ezt hívjuk meg az 'app' függvényben.
+-- Létrehozza az üres tárolót.
+-- A Snapletek a State monádhoz hasonlóan viselkednek.
 repositoryInit :: SnapletInit b Repository
 repositoryInit = makeSnaplet "repository" "Repository Snaplet" Nothing $ do
     (dm,sm) <- liftIO $ (,) `liftM` newMVar [] `ap` newMVar M.empty
     return $ Repository dm sm
 
--- hozzáférés dokumentumhoz megosztási linken keresztül
-access :: (MonadIO m) => Repository -> SharedKey -> m Access
+
+
+
+--------------------------------------------------------------------------------
+-- | Új dokumentum létrehozása. A függvény létrehoz egy új dokumentumot,
+-- azt hozzáadja a tárolóhoz, majd visszatér a létrehozott dokumentummal.
+createDocument :: (MonadIO m)
+               => Repository    -- ^ tároló
+               -> m (MDocument) -- ^ a létrehozott dokumentum
+createDocument dh = do
+    let mdocs = documents dh
+    liftIO $ do
+        mnewDoc <- newMVar emptyDocument
+        docs <- takeMVar mdocs
+        putMVar mdocs (mnewDoc:docs)
+        return mnewDoc
+  where
+    emptyDocument :: Document
+    emptyDocument = Document {revisions=[], chatLog=[]}
+
+--------------------------------------------------------------------------------
+-- | Hozzáférés dokumentumhoz megosztási linken keresztül
+access :: (MonadIO m)
+       => Repository  -- ^ tároló
+       -> SharedKey   -- ^ megosztási link
+       -> m Access    -- ^ hozzáférés
 access dh sk = liftIO $ do
     shareMap <- readMVar (shares dh)
     case M.lookup sk shareMap of
         Just acc -> return $ Granted acc
         Nothing  -> return Denied
 
---véletlenszerű megosztókulcsok generálása  
-generateSharedKeys' :: IO [SharedKey]
-generateSharedKeys' =  evalRandIO (getRandoms) >>= return . map (T.pack . UUID.toString)
 
+--------------------------------------------------------------------------------
 -- | Dokumentum megosztása, ha még nincs megosztva
-shareDocument :: (MonadIO m) =>
-                 Repository
-              -> DocumentAccess 
-              -> m (SharedKey)  -- ^ megosztási kulcs
-shareDocument dh dacc = liftIO $ trace "sharing ..." $ do
+shareDocument :: (MonadIO m)
+              => Repository     -- ^ tároló
+              -> DocumentAccess -- ^ hozzáférési szint és dokumentum
+              -> m (SharedKey)  -- ^ generált megosztási kulcs
+shareDocument dh dacc = liftIO $ do
     sk <- modifyMVar (shares dh) $ \shareMap -> do
         randomKeys <- generateSharedKeys'
         return $ case locateMapKey dacc shareMap of
           Just oldSk -> (shareMap, oldSk)  --már meg van osztva
           Nothing -> insertNewShare dacc shareMap randomKeys
-    trace ("shared as " ++ T.unpack sk) $ return () 
     return sk
   where
     --beszúr egy új dokumentumot, egyedi azonosítóval
@@ -91,91 +131,93 @@ shareDocument dh dacc = liftIO $ trace "sharing ..." $ do
     insertNewShare dacc shareMap (sk:moreSk) = case M.lookup sk shareMap of
       Nothing -> (M.insert sk dacc shareMap, sk) --új, egyedi kulcs
       Just _  -> insertNewShare dacc shareMap moreSk --kulcsütközés
+    --véletlenszerű megosztókulcsok generálása  
+    generateSharedKeys' :: IO [SharedKey]
+    generateSharedKeys' =  evalRandIO (getRandoms) >>= return . map (T.pack . UUID.toString)
 
 
 --------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---DOCUMENT----------------------------------------------------------------------
--- | Új, üres dokumentum
-emptyDocument :: Document
-emptyDocument = Document {revisions=[], chatLog=[]}
-
-
-getRevisions :: MonadIO m => MDocument -> m [Revision]
+-- | Revíziók lekérdezése
+getRevisions :: (MonadIO m)
+             => MDocument     -- ^ dokumentum
+             -> m [Revision]  -- ^ revíziók listája
 getRevisions mdoc = do
-  logDSS "getting revisions"
   doc <- liftIO . readMVar $ mdoc
-  logDSS "revisions gotten"
   return $ revisions doc
 
---WARNING
-appendRevision :: MonadIO m => Revision -> MDocument -> m ()
-appendRevision r mdoc = do
-  logDSS "appending revision"
-  liftIO $ do
-    doc <- takeMVar $ mdoc
-    putMVar mdoc (doc {revisions=(revisions doc ++ [r])})
-  logDSS "revision appended"
-
--- rak [+2:ab|=3] abrak
-commit :: MonadIO m => MDocument -> Revision -> m Revision
-commit mdoc rev = do
-  logDSS "committing"
-  revs <- getRevisions mdoc --ezt meg a commitot atomi módon kell
-  resp <- commit' rev revs --és itt kell a sorbafűzést elvégezni
-  logDSS "committed"
-  return resp
+--------------------------------------------------------------------------------
+-- | Revíziók rögzítése, illetve lekérdezése. Központi eljárás,
+-- mely atomi módon megpróbálja rögzíteni a kliens által küldött revíziót.
+-- Ha ez nem sikerül, mert időközben más kliens küldött be revíziót,
+-- visszaküldi az elmaradt revíziókat összefűzve.
+-- Ha a kliens nem küldött semmit, akkor csak visszaküldi az időközben beérkezett
+-- revíziókat.
+update :: (MonadIO m)
+       => MDocument     -- ^ dokumentum
+       -> Revision      -- ^ kliens által küldött revízió
+       -> m Revision    -- ^ válaszban küldendő revízió
+update mdoc rev = do
+  doc <- liftIO $ takeMVar mdoc
+  let revs = revisions doc
+  (cliResp, newRevs) <- tryCommit rev revs --és itt kell a sorbafűzést elvégezni
+  liftIO $ putMVar mdoc $ doc {revisions=newRevs}
+  return cliResp
     where
-      commit' :: MonadIO m => Revision -> [Revision] -> m Revision
-      --checkout only todo:v == latestversion
-      commit' (Revision v []) revs = do
+      tryCommit :: (MonadIO m)
+                => Revision    -- ^ kliens revíziója
+                -> [Revision]  -- ^ repository revíziók
+                -> m (Revision, [Revision])  -- ^ (kliensnek vissza, új repository revíziók)
+      tryCommit (Revision v []) revs = do --nem küldött semmit, csak checkout
         let retRev = seqMergeRevisions $ after v revs
-        return $ maybe (Revision v []) id retRev  
-      commit' r@(Revision v es) revs
-        | latestVersion revs == v = do --can commit
-            appendRevision (Revision (v+1) es) mdoc
-            return $ Revision (v+1) []
-        | otherwise = do --can not commit
-          let retRev = seqMergeRevisions $ after v revs  --ha ez Nothing, az hiba
-          return $ maybe (Revision v []) id retRev
+        return (maybe (Revision v []) id retRev, revs)
+      tryCommit r@(Revision v es) revs
+        | latestVersion revs == v = do --ő a legfrissebb, tároljuk a módosítását
+            return (Revision (v+1) [], revs ++ [(Revision (v+1) es)])
+        | otherwise = do --le van maradva, küldjük vissza amivel le van maradva
+          let retRev = seqMergeRevisions $ after v revs
+          return $ (maybe (Revision v []) id retRev, revs)
 
---chat üzenet küldése
-sendChatMessage :: Document -> ChatMessage -> Document
+
+--------------------------------------------------------------------------------
+-- | Chat üzenet küldése
+sendChatMessage :: Document       -- ^ dokumentum
+                -> ChatMessage    -- ^ chat üzenet
+                -> Document       -- ^ dokumentum, amiben benne van a chat üzenet
 sendChatMessage doc msg = doc {chatLog=withMessage msg (chatLog doc) }
   where
     withMessage msg [] = [(0, msg)]
     withMessage msg l@((nr,_):_) = (nr+1, msg):l
 
---modul: Document    
---chat üzenetek fogadása adott verziótól kezdve
-receiveChatMessages :: Document -> Version -> (Version,[ChatMessage])
+
+--------------------------------------------------------------------------------
+-- | Chat üzenetek fogadása adott verziótól kezdve
+receiveChatMessages :: Document                 -- ^ dokumentum
+                    -> Version                  -- ^ kliens verziószáma
+                    -> (Version,[ChatMessage])  -- ^ üzenetek a kliensverzió óta
 receiveChatMessages doc v = receiveChatMessages' $ takeWhile ((>v)  . fst) $ chatLog doc
   where
     receiveChatMessages' [] = (v, [])
     receiveChatMessages' l@(x:_) = (fst x, map snd l)
 
+
 --------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---REVISION----------------------------------------------------------------------
+-- | A legfrissebb verziószám
 latestVersion :: [Revision] -> Version
 latestVersion [] = 0
 latestVersion rs = version (last rs)
 
---változások adott verzió után
+
+--------------------------------------------------------------------------------
+-- | Változások csak egy adott verzió után
 after :: Version -> [Revision] -> [Revision]
 after v rs = dropWhile (\r -> (version r) <= v) rs
 
 
-compatible :: [PackedEdit] -> [PackedEdit] -> Bool
-compatible = undefined -- True
-
-sequentialMerge :: [SingleEdit] -> [SingleEdit] -> [SingleEdit]
-sequentialMerge = undefined --seqMergeEdits
-      
-parallelMerge :: (Revision, Revision) -> (Revision, Revision)
-parallelMerge (Revision v1 e1, Revision v2 e2) = undefined
-
-seqMergeRevisions :: [Revision] -> Maybe Revision
+--------------------------------------------------------------------------------
+-- | Revíziók szekvenciális összefűzése. Üres lista esetén
+-- Nothing-gal tér vissza, egyébként Just <összefűzött revízió>-val
+seqMergeRevisions :: [Revision]     -- ^ összefűzendő revíziók
+                  -> Maybe Revision -- ^ összefűzött revízió
 seqMergeRevisions [] = Nothing
 seqMergeRevisions [r] = Just r
 seqMergeRevisions revs = Just $ Revision {
@@ -183,19 +225,15 @@ seqMergeRevisions revs = Just $ Revision {
       , edits=packEdit . foldl seqMergeEdits [] . map (unpackEdit . edits) $ revs
     }
   where
---    seqMergePEdits :: [PackedEdit] -> [PackedEdit] -> [PackedEdit] 
-
     seqMergeEdits :: [SingleEdit] -> [SingleEdit] -> [SingleEdit]
     seqMergeEdits (SR:ls) r = (SR:seqMergeEdits ls r)
     seqMergeEdits l (SI c:rs) = (SI c: seqMergeEdits l rs)
     
     seqMergeEdits (SP:ls) (SP:rs) = SP:seqMergeEdits ls rs
     seqMergeEdits (SP:ls) (SR:rs) = SR:seqMergeEdits ls rs
-    --seqMergeEdits l@(SP:ls) (SI c:rs) = (SI c:seqMergeEdits l rs)
 
     seqMergeEdits (SI c:ls) (SP:rs) = (SI c:seqMergeEdits ls rs)
     seqMergeEdits (SI c:ls) (SR:rs) = seqMergeEdits ls rs
-    --seqMergeEdits l@(SI _:ls) (SI c:rs) = (SI c:seqMergeEdits l rs)
     seqMergeEdits [] r = r
 
     unpackEdit :: [PackedEdit] -> [SingleEdit]
@@ -205,7 +243,6 @@ seqMergeRevisions revs = Just $ Revision {
     unpackEdit (P n:rest) = SP: unpackEdit (P (n-1):rest)
     unpackEdit (I "":rest) = unpackEdit rest 
     unpackEdit (I (c:str):rest) = SI c: unpackEdit (I str:rest)
---    unpackEdit (I str:rest) = map SI str ++ unpackEdit rest
     unpackEdit [] = []
     
     packEdit :: [SingleEdit] -> [PackedEdit]
@@ -220,8 +257,156 @@ seqMergeRevisions revs = Just $ Revision {
     packEdit' (SI c:ur, p) = packEdit' (ur, I (c:[]):p)  
     
     packEdit' ([], p) = ([], p)
-          
+  
 --------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---TOOLS-------------------------------------------------------------------------
+type Content = String
+type Length = Int
+type Count = Int
 
+
+data SingleEdit = SI Char | SP | SR
+  deriving (Show)
+
+
+--------------------------------------------------------------------------------
+-- | Dokumentum revízió
+data Revision = Revision
+    { version::Version
+    , edits::[PackedEdit] }
+  deriving (Show)
+
+type Version = Int
+
+--------------------------------------------------------------------------------
+-- | Chat üzenet
+data ChatMessage = ChatMessage
+    { sender :: String
+    , message :: String }
+  deriving (Show)
+
+--------------------------------------------------------------------------------
+-- | Válasz objektum a frissítési kérelemre  
+data UpdateResponse = UpdateResponse
+    { rspRevision :: Revision
+    , rspChatMessages :: [ChatMessage]
+    , rspChatVersion :: Version }
+  deriving (Show)
+  
+--------------------------------------------------------------------------------
+-- | Frissítési kérelem típusa  
+data Request = Request
+    { reqRevision :: Revision
+    , reqChatName :: String
+    , reqChatBuffer :: [String]
+    , reqChatVersion :: Version }
+  deriving (Show)
+  
+--------------------------------------------------------------------------------
+-- | Hozzáférési szint
+data AccessRight = Author | Reader
+  deriving (Eq)
+
+--------------------------------------------------------------------------------
+-- | Megosztási kérelem
+data ShareRequest = ShareRequest
+    { shareRequest_type :: String}
+
+--------------------------------------------------------------------------------
+-- | Megosztási link
+data ShareResponse = ShareResponse 
+    { shareResponse_link :: String }
+    
+{-
+data InitialCheckout = InitialCheckout
+    { initialContent :: T.Text }
+  deriving (Show)
+-}
+type MDocument = MVar Document
+type ShareMap = M.Map SharedKey DocumentAccess
+type MShareMap = MVar ShareMap
+
+--------------------------------------------------------------------------------
+-- | Rögzített hozzáférési szintű dokumentum hozzáférés
+newtype DocumentAccess = DocumentAccess (AccessRight, MDocument)  
+  deriving (Eq)
+
+--------------------------------------------------------------------------------
+-- | Hozzáférés
+data Access = Denied                  -- ^ megtagadott hozzáférés
+            | Granted DocumentAccess  -- ^ engedélyezett hozzáférés
+
+--------------------------------------------------------------------------------
+-- | A tároló típusa
+data Repository = Repository
+    { documents :: MVar [MVar Document]
+    , shares :: MVar ShareMap }
+
+
+type ChatLog = [ChatMessage]
+
+--------------------------------------------------------------------------------
+-- | Dokumentum típus
+data Document = Document
+    { revisions :: [Revision]
+    , chatLog :: [(Int, ChatMessage)] }
+
+type SharedKey = T.Text
+type RevisionHistory = [Revision]  
+
+--------------------------------------------------------------------------------
+-- | Segédosztály a Snaplet kényelmesebb használata céljából        
+class (MonadIO m) => HasRepository m 
+  where
+    getRepository :: m Repository
+    modifyRepository :: (Repository -> Repository) -> m ()
+    
+
+    
+--------------------------------------------------------------------------------
+{- nem használt definíciók, későbbi fejlesztéshez fenntartva 
+compatible :: [PackedEdit] -> [PackedEdit] -> Bool
+compatible = undefined -- True
+-}
+
+--------------------------------------------------------------------------------
+-- | Szerkesztéslánc egy eleme
+data PackedEdit =
+    I String      -- ^ Beszúr <String>
+  | P Int         -- ^ Helybenhagy n karaktert
+  | R Int         -- ^ Töröl n karaktert
+  deriving (Show)
+
+
+_P 0 rest = rest
+_P n rest = (P n:rest)
+
+_R 0 rest = rest
+_R n rest = (R n:rest)
+
+_I "" rest = rest
+_I s rest = (I s:rest)
+
+seqMergeNew :: [PackedEdit] -> [PackedEdit] -> [PackedEdit]
+seqMergeNew (R n:ls) r = R n: seqMergeNew ls r --törölt szakasz már mindörökre törölve marad
+seqMergeNew l ((I s):rs) = I s: seqMergeNew l rs --ha új beszúrás van, szúrjunk be 
+seqMergeNew (P n:ls) (P m:rs) = P k: seqMergeNew (_P (n-k) ls) (_P (m-k) rs) --
+  where k = min n m
+seqMergeNew (P n:ls) (R m:rs) = R k: seqMergeNew (_P (n-k) ls) (_R (m-k) rs)
+  where k = min n m
+seqMergeNew (I s:ls) (P m:rs) = (I (take m s)):seqMergeNew (_I (drop m s) ls) (_P (m-(length s)) rs)
+seqMergeNew (I s:ls) (R m:rs) = seqMergeNew (_I (drop m s) ls) (_R (m-(length s)) rs)
+seqMergeNew l _ = l
+{-
+parallelMerge :: (Revision, Revision) -> (Revision, Revision)
+parallelMerge (Revision v1 e1, Revision v2 e2) = undefined
+-}
+
+--------------------------------------------------------------------------------
+-- | JSON reprezentációk automatikus generálása    
+$(deriveJSON id ''PackedEdit)
+$(deriveJSON id ''Revision)
+$(deriveJSON id ''ChatMessage)
+$(deriveJSON id ''UpdateResponse)
+$(deriveJSON id ''Request)
+$(deriveJSON (drop 14) ''ShareResponse)
+$(deriveJSON (drop 13) ''ShareRequest)

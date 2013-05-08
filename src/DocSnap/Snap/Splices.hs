@@ -11,6 +11,7 @@ module DocSnap.Snap.Splices
   , javascriptsSplice
   , renderErrorDialog
   , renderDialog
+  , iconSplice
   ) where
   
 --------------------------------------------------------------------------------
@@ -80,3 +81,14 @@ renderDialog content button target = renderWithSplices "main"
           , target
           , "\";" ] ] ]
 
+--------------------------------------------------------------------------------
+-- | Ikont, képet megjelenítő splice
+iconSplice :: (HasHeist b)
+           => String      -- ^ kép elérési útvonala
+           -> Int         -- ^ kép mérete
+           -> SnapletISplice b
+iconSplice path s = return $ [H.Element "img" 
+      [ ("src", T.pack $ path)
+      , ("width", T.pack $ show s)
+      , ("height", T.pack $ show s) ] []]
+      

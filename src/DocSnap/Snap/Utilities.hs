@@ -6,6 +6,7 @@
 -- használni tudja.
 module DocSnap.Snap.Utilities
   ( getServerURL
+  , isAjaxRequest
   ) where
   
 --------------------------------------------------------------------------------
@@ -23,7 +24,6 @@ getServerURL :: (MonadSnap m)
              => T.Text  -- ^ Az URL végére illesztendő relatív útvonal  
              -> m T.Text
 getServerURL path = do
-    req <- getRequest
     host <- originHeader
         >>= maybe (hostHeader
         >>= maybe dummyURL (return.decodeUtf8)) (return.decodeUtf8)
@@ -37,4 +37,15 @@ getServerURL path = do
       [ T.dropWhileEnd (=='/') first
       , "/"
       , T.dropWhile (=='/') second ]
+
+
+--------------------------------------------------------------------------------
+-- | Igazat ad vissza, ha az aktuális kérés JQuery ajaxon keresztül érkezett
+isAjaxRequest :: (MonadSnap m)
+              => m Bool
+isAjaxRequest = do
+    mb <- getsRequest (getHeader "X-Requested-With")
+    case mb of
+        Just b -> return ("XMLHttpRequest" == decodeUtf8 b)
+        _ -> return False
 
