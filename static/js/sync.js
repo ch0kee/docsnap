@@ -16,10 +16,11 @@ $(document).ready(function() {
 
     //küldendő változatások összegyűjtése
     if (DocSnap.__CANCOMMIT) {
-      DocSnap.__sentContent = DocSnap.getActualContent();    
-      request.reqRevision.edits = DocSnap.collectEditsSince(context.syncContent);
+      DocSnap.__sentContent = DocSnap.getActualContent();
+      request.reqRevision.editScript = DocSnap.collectEditsSince(context.syncContent);
+      context.syncContent = DocSnap.__sentContent;
     } else {
-      request.reqRevision.edits = [];
+      request.reqRevision.editScript = [];
     }
    
     //saját változtatások küldése, többiek módosításának lekérése 
@@ -30,10 +31,10 @@ $(document).ready(function() {
 
       //kiderítjük, hogy sikerült-e a commit      
       var versionIncremented = response.rspRevision.version > context.syncVersion;
-      var receivedEdits = response.rspRevision.edits.length > 0;
+      var receivedEdits = response.rspRevision.editScript.length > 0;
       if (DocSnap.__CANCOMMIT && versionIncremented && !receivedEdits) {
         //elfogadták, amit beküldtünk
-        context.syncContent = DocSnap.__sentContent;
+        //context.syncContent = DocSnap.__sentContent;
       }
       
       //aktuális verzió beállíŧása
@@ -44,7 +45,7 @@ $(document).ready(function() {
         //számítsuk ki az új szinkronizált tartalmat
         var newSyncContent =
           DocSnap.Differences.executeES1 (context.syncContent
-                                        ,response.rspRevision.edits);
+                                        ,response.rspRevision.editScript);
         
         
         //kijelölés megőrzése        
@@ -56,7 +57,7 @@ $(document).ready(function() {
         var combinedContent =
           DocSnap.Differences.executeES2 (context.syncContent
                                         ,localEdits
-                                        ,response.rspRevision.edits);
+                                        ,response.rspRevision.editScript);
         context.syncContent = newSyncContent;
 
         DocSnap.setActualContent(combinedContent); 
@@ -90,7 +91,7 @@ $(document).ready(function() {
       var srvVersion = revision.version;
       context.syncContent =
         DocSnap.Differences.executeES1 (context.syncContent
-                                      ,response.rspRevision.edits);
+                                      ,response.rspRevision.editScript);
       context.syncVersion = response.rspRevision.version;
       context.syncChatVersion = response.rspChatVersion;      
       DocSnap.showChatMessages(response.rspChatMessages);

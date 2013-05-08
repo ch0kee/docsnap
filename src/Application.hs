@@ -16,14 +16,19 @@ import qualified Data.ByteString as B
 import Control.Monad.State (get, modify, gets)--, put, modify)
 --import Snap.Snaplet.MongoDB
 import DocSnap.Internal.Types
-import DocSnap.Repository
+--import DocSnap.Repository
 
+import DocSnap.VersionControl
+import DocSnap.AccessProvider
+import DocSnap.Document
+import Data.UUID as UUID
 --------------------------------------------------------------------------------
 -- | Az alkalmazás állapota
 data App = App
     { _heist :: Snaplet (Heist App)
-    , _session :: Snaplet SessionManager
-    , _repository :: Snaplet Repository
+  --  , _repository :: Snaplet Repository
+    , _versionControl    :: Snaplet DocumentVersionControl
+    , _accessProvider  :: Snaplet DocumentAccessProvider
 --    , _database :: Snaplet MongoDB
     }
 
@@ -34,14 +39,7 @@ makeLenses ''App
 instance HasHeist App where
   heistLens = subSnaplet heist
 
-instance HasRepository (Handler b App) where
-  getRepository = with repository get
-  modifyRepository f = with repository (modify f)
 
-{- jövőbeni fejlesztéshez
-instance HasMongoDB App where
-   getMongoDB app = view snapletValue (view database app)
--}
 
 --------------------------------------------------------------------------------
 type AppHandler = Handler App App
