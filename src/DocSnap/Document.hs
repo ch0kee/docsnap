@@ -7,7 +7,7 @@ import qualified Data.Text as T
 import qualified Data.ByteString as B
 import    Data.Text.Encoding (decodeUtf8, encodeUtf8)
 
-type Document = Repository
+--type Document = Repository
 type DocumentVersionControl = VersionControl
 data DocumentAccessLevel = Author | Reader
   deriving (Eq)

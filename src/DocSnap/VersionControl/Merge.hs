@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module DocSnap.Merge
+module DocSnap.VersionControl.Merge
   ( compose
   , merge
   , Edit(..)
@@ -15,6 +15,8 @@ import Test.QuickCheck.Property
 import Test.QuickCheck.All
 import Data.Ord
 import Data.List
+import Debug.Trace
+
 
 import Control.Monad
 
@@ -45,6 +47,9 @@ seqMerge:: [PackedEdit] -> [PackedEdit] -> [PackedEdit]
 --ha n karaktert eddig töröltünk, akkor az ezután is törölve lesz (3 kombináció)
 seqMerge x y = flatten $ seqMergeNew x y
 
+--ha valamelyik üres, akkor at egyszerűen kihagyjuk
+seqMergeNew [] r = r
+seqMergeNew r [] = r
 
 seqMergeNew (R n:ls) r = R n: seqMergeNew ls r 
 --bármit csináltunk eddig, ha ezután ide beszúrunk, akkor azt szúrjuk be (2 kombináció)
@@ -68,8 +73,6 @@ seqMergeNew (I s:ls) (P m:rs) = _I (take k s) $ seqMergeNew (_I (drop k s) ls) (
 seqMergeNew (I s:ls) (R m:rs) = seqMergeNew (_I (drop k s) ls) (_R (m-k) rs)
   where k = min m (length s)
 
---egyébként elfogyott a jobboldal
-seqMergeNew [] r = r
 
 -------------------------------------------------------------------------------
 -- | seq merge 2. változat
@@ -220,6 +223,12 @@ infixl 6 .+.
 
 
 par :: ([PackedEdit], [PackedEdit]) -> ([PackedEdit], [PackedEdit])
+
+--ha valamelyik üres, akkor az csináljon meg mindent, amit a másik
+par ([], r) = (r, [])
+par (r, []) = ([],r)
+
+
 --ha A beszúrt, akkor szúrjon be B is, A pedig őrizze meg a beszúrását
 par (I s1:ls, r) = ([P (length s1)], [I s1]) .+. par (ls, r)
 --ha B beszúrt, akkor szúrjon be A is, B pedig őrizze meg a beszúrását
@@ -241,12 +250,10 @@ par (R n:ls, P m:rs) = ([], [R k])    .+. par (_R (n-k) ls, _P (m-k) rs)
 par (P n:ls, R m:rs) = ([R k], [])    .+. par (_P (n-k) ls, _R (m-k) rs)
   where k = min m n
 
-par ([], []) = ([], [])
-par (xs, ys) = error $ "incompatible edit scripts" ++ show xs ++ show ys
+par (xs, ys) = trace ("incompatible edit scripts" ++ (show xs) ++ (show ys) ) ([],[])
 
 
 
---"hehe"1249
 testPar :: [PackedEdit] -> [PackedEdit] -> [PackedEdit] -> IO ()
 testPar base s1 s2 = do
   putStrLn $ "s1=" ++ show s1 
@@ -368,6 +375,8 @@ arbitraryForParSeq = do
 
 prop_parsequ1 = forAll arbitraryForParSeq $ \(b,(s1,s2)) -> let (p1, p2) = parMerge (s1, s2) in
       (seqMerge (seqMerge b s1) p1) `equivalent` (seqMerge (seqMerge b s2) p2)
+
+
 
 prop_parsequ2 = forAll arbitraryForParSeq $ \(b,(s1,s2)) -> let (p1, p2) = parMerge (s1, s2) in
       (seqMerge2 (seqMerge2 b s1) p1) == (seqMerge2 (seqMerge2 b s2) p2)

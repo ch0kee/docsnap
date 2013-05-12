@@ -13,23 +13,24 @@ import Snap.Snaplet.Auth
 import Snap.Snaplet.Session
 import Data.IORef
 import qualified Data.ByteString as B
-import Control.Monad.State (get, modify, gets)--, put, modify)
---import Snap.Snaplet.MongoDB
-import DocSnap.Internal.Types
---import DocSnap.Repository
-
+import Control.Monad.State
+import DocSnap.Synchronize
+import Control.Monad.Trans
 import DocSnap.VersionControl
 import DocSnap.AccessProvider
 import DocSnap.Document
 import Data.UUID as UUID
 --------------------------------------------------------------------------------
+-- | távoli synchronize modul kapcsolódási pontok
+data AjaxModules = Chat | Editor
+  deriving (Show)
+
 -- | Az alkalmazás állapota
 data App = App
     { _heist :: Snaplet (Heist App)
-  --  , _repository :: Snaplet Repository
-    , _versionControl    :: Snaplet DocumentVersionControl
+    , _ajaxSync :: Snaplet (AjaxSynchronize AjaxModules)
+    , _versionControl  :: Snaplet DocumentVersionControl
     , _accessProvider  :: Snaplet DocumentAccessProvider
---    , _database :: Snaplet MongoDB
     }
 
 makeLenses ''App

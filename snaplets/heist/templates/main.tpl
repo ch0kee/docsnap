@@ -16,6 +16,7 @@
     <script src="/static/js/libs/rangy-1.2.3/rangy-cssclassapplier.js"> </script>
    
     <script src="/static/js/environment.js"> </script>
+    <script src="/static/js/ui.js"> </script>
     <script src="/static/js/utils.js"> </script>
     <script src="/static/js/popupdialog.js"> </script>
     
@@ -54,7 +55,7 @@
         </div>
       </div>
       <div class="ui-layout-south sitefooter">
-          DocSnap © ch0kee 2013
+          DocSnap v1.0 - 2013
       </div>
   </body>
 </html>

@@ -300,9 +300,9 @@ DocSnap.Differences.getShortestEditScript = function(oldString, newString) {
 };
 
 //@ változások összegyűjtése
-DocSnap.collectEditsSince = function (since) {
+DocSnap.collectEditsSince = function (since, current) {
   var edits = this.Differences.getShortestEditScript(this.tokenize(since)
-                                    ,this.tokenize(this.getActualContent()));
+                                    ,this.tokenize(current));
 //üres listát adjunk vissza, ha nem változott semmi
 //todo ezt a getShortestEditScript csinálja
 

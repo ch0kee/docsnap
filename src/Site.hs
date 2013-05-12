@@ -29,7 +29,7 @@ import           Control.Monad.Trans.Maybe
 import  qualified Data.Aeson as A
 --------------------------------------------------------------------------------
 import           Application
-import           DocSnap.Repository
+--import           DocSnap.Repository
 
 import Data.UUID as UUID
 import Snap.Snaplet.Session
@@ -37,20 +37,17 @@ import Snap.Snaplet.Session
 import  Debug.Trace
 
 import DocSnap.Serialize (serialize, deserialize)
-import DocSnap.Internal.Types
-import DocSnap.Internal.Utilities
 import Data.Monoid (mempty)
 import Control.Concurrent.MVar
-import DocSnap.Snap.Splices (javascriptsSplice, renderErrorDialog, iconSplice)
+import DocSnap.Splices (javascriptsSplice, renderErrorDialog, iconSplice)
 import DocSnap.Export
 import DocSnap.Formatting (formattingSplice, cssSplice)
-import DocSnap.Snap.Utilities (getServerURL, isAjaxRequest)
+import DocSnap.Utilities
 
 import qualified DocSnap.Document as D
 import qualified DocSnap.AccessProvider as D
 import qualified DocSnap.VersionControl as D
-
-import DocSnap.Snaplets
+import DocSnap.Synchronize
 
 --import  Snap.Snaplet.MongoDB
 --import Database.MongoDB.Connection
@@ -75,30 +72,11 @@ handleIndex = renderWithSplices "main" [("heistscripts", openNewDialogSplice)]
 -- A megosztáshoz tartozó jogosultságnak megfelelő eszközöket töltünk be az
 -- oldalra, így például Olvasó jogosultsággal nem fogja tudni szerkeszteni
 -- a dokumentumot. 
-{-
-handleOpen :: SharedKey     -- ^ az URL-ből kapott megosztókulcs
-           -> AppHandler ()
-handleOpen sharedKey = do
-    rep <- getRepository
-    acc <- access rep sharedKey
-    case acc of
-      Denied -> notFoundDialog sharedKey
-      Granted (DocumentAccess (right,_)) -> renderWithSplices "main"
-        [ ("heistscripts", javascriptsSplice "/static/js/" (scripts right) )
-        , ("image", iconSplice (icon right) 20)]
-  where
-    notFoundDialog sk = getServerURL sk >>= \url -> 
-      renderErrorDialog ("The following document doesn't exist:\\n" ++ T.unpack url) "ok"
-    scripts Author = ["author", "sync"] --szerző esetén az author.js-t is betöltjük
-    scripts Reader = ["sync"]
-    icon Author = "/static/images/author-icon.png"
-    icon Reader = "/static/images/reader-icon.png"
-    -}
-    
+
     
 handleOpen :: D.SharedKey     -- ^ az URL-ből kapott megosztókulcs
            -> AppHandler ()
-handleOpen key = trace "open" $ do
+handleOpen key = do
     acc <- with accessProvider $ D.tryAccess key
     case acc of
       Nothing -> notFoundDialogSK key
@@ -111,11 +89,6 @@ handleOpen key = trace "open" $ do
     icon D.Author = "/static/images/author-icon.png"
     icon D.Reader = "/static/images/reader-icon.png"
 
-notFoundDialog sk = getServerURL sk >>= \url -> 
-  renderErrorDialog ("The following document doesn't exist:\\n" ++ T.unpack url) "ok"
-
-
-notFoundDialogSK = notFoundDialog . T.pack . UUID.toString
 --------------------------------------------------------------------------------
 -- | Új dokumentum - kezelő. Akkor fut le, amikor a felhasználó új dokumentum
 -- létrehozását kezdeményezte. Ezt vagy a főoldalon keresztül tudja megtenni,
@@ -123,67 +96,27 @@ notFoundDialogSK = notFoundDialog . T.pack . UUID.toString
 -- kérünk.
 handleNew :: AppHandler ()
 handleNew = do
-    doc <- with versionControl $ D.createRepository
+    doc <- with versionControl $ D.createDocument
     sk <- with accessProvider $ D.makeAccessible D.Author doc
     redirect $ encodeUtf8 $ D.encodeSharedKey sk
 
-            
---------------------------------------------------------------------------------
--- | Ez a kezelő fut le akkor, amikor a kliens először csatlakozik egy
--- dokumentumhoz, és le akarja tölteni a teljes szöveget.
-handleAjaxInitialCheckout :: D.DocumentAccess  -- ^ dokumentumhozzáférés
-                          -> AppHandler ()
-handleAjaxInitialCheckout (D.Access _ doc) = trace "init" $ do
-    curRev <- D.checkout doc
-    writeJSON $ D.UpdateResponse curRev [] (-1)
 
-{-
-handleAjaxInitialCheckout :: DocumentAccess  -- ^ dokumentumhozzáférés
-                          -> AppHandler ()
-handleAjaxInitialCheckout (DocumentAccess(_,mdoc)) = do
-    revs <- getRevisions mdoc
-    let curRev = maybe (Revision 0 []) id $ seqMergeRevisions revs
-    writeBS $ serialize $ UpdateResponse curRev [] (-1)
--}
 --------------------------------------------------------------------------------
 -- | Változások feltöltése, letöltése - kezelő. Ez a legfontosabb kezelő függvény,
 -- Végtelenítve hívódik, ez vezérli a dokumentumban történt változtatások
 -- beolvasztását.
 -- Ha a jogosultságnak nem megfelelő műveletet hajt végre a felhasználó, annak az
 -- eredménye egy hibaüzenet a kliens oldalon.
-{-
-handleAjaxContentUpdate :: (MonadSnap m)
-                        => DocumentAccess -- ^ dokumentumhozzáférés
-                        -> Arguments      -- ^ frissítési argumentumok
-                        -> m ()
-handleAjaxContentUpdate (DocumentAccess (right, mdoc)) requestData = do
-    case deserialize requestData of
-      Nothing -> respondUnknownAjaxError
-      Just (Request rev chatName chatBuffer chatVersion) -> do
-        doc <- liftIO $ takeMVar mdoc
-        let doc' = foldl sendChatMessage doc $ map (ChatMessage chatName) chatBuffer
-            (newChatVersion,newChatMessages) = receiveChatMessages doc' chatVersion         
-        liftIO $ putMVar mdoc doc'
-        rev <- update mdoc rev
-        let response = UpdateResponse rev newChatMessages newChatVersion
-        writeBS $ serialize response
--}
 
-handleAjaxContentUpdate :: (MonadSnap m)
-                        => D.DocumentAccess     -- ^ hozzáférés
+
+handleAjaxUpdate :: D.DocumentAccess     -- ^ hozzáférés
                         -> Arguments      -- ^ frissítési argumentumok
-                        -> m ()
-handleAjaxContentUpdate (D.Access level doc) requestData = do
-    case deserialize requestData of
-      Nothing -> respondUnknownAjaxError
-      Just (D.Request rev chatName chatBuffer chatVersion) -> do
---          doc <- liftIO $ takeMVar mdoc
---          let doc' = foldl sendChatMessage doc $ map (ChatMessage chatName) chatBuffer
---              (newChatVersion,newChatMessages) = receiveChatMessages doc' chatVersion         
---          liftIO $ putMVar mdoc doc'
-          resultRev <- D.update doc rev
-          writeJSON $ D.UpdateResponse resultRev [] chatVersion --newChatMessages newChatVersion  
-        
+                        -> AppHandler ()
+handleAjaxUpdate (D.Access level doc) requestData = with ajaxSync $ do
+    receive Editor >>= D.update doc >>= send Editor
+    receive Chat >>= D.chat doc >>= send Chat
+    storePayloads
+
 --------------------------------------------------------------------------------
 -- | Megosztás - kezelő. Ez a kezelő függvény felelős a megosztások
 -- beregisztrálásáért, attól függően, hogy Olvasó, vagy Szerkesztő
@@ -201,16 +134,16 @@ handleAjaxReaderShare :: D.DocumentAccess -> AppHandler ()
 handleAjaxReaderShare (D.Access level doc) = do
     sk <- with accessProvider $ D.makeAccessible D.Reader doc
     url <- getServerURL $ D.encodeSharedKey sk
-    writeJSON $ ShareResponse $ T.unpack url
+    writeJSON $ D.ShareResponse $ T.unpack url
 
 handleAjaxAuthorShare :: D.DocumentAccess -> AppHandler ()
 handleAjaxAuthorShare (D.Access level doc) = do
     case level of
-        D.Reader -> writeBS $ serialize $ ErrorAjaxResponse "You don't have the required permissions to complete this task."
+        D.Reader -> writeJSON $ ErrorAjaxResponse "You don't have the required permissions to complete this task."
         D.Author -> do
             sk <- with accessProvider $ D.makeAccessible D.Author doc
             url <- getServerURL $ D.encodeSharedKey sk
-            writeJSON $ ShareResponse $ T.unpack url
+            writeJSON $ D.ShareResponse $ T.unpack url
 
 
 --------------------------------------------------------------------------------
@@ -232,24 +165,7 @@ handleAjaxExport (D.Access _ doc) json = do
 --------------------------------------------------------------------------------
 -- | Az ajax kérések elágaztatásáért felelős kezelő. Akkor hívódik meg, ha
 -- egy ajax kérés érkezik egy dokumentum megosztási címére.
-{-
-type Arguments = B.ByteString
-handleAjaxCommand :: D.SharedKey        -- ^ megosztási kulcs
-                  -> Maybe Arguments  -- ^ esetleges utasítás-argumentumok
-                  -> B.ByteString     -- ^ utasítás
-                  -> AppHandler ()
-handleAjaxCommand sharedKey maybeArgs command = do
-    repo <- getRepository
-    acc <- access repo sharedKey
-    case acc of
-      Denied      -> respondUnknownAjaxError
-      Granted granted -> case command of
-          "init"   -> handleAjaxInitialCheckout granted
-          "update" -> handleAjaxContentUpdate granted (fromJust maybeArgs) --WARNING
-          "share"  -> handleAjaxShare granted (fromJust maybeArgs) --WARNING
-          "export" -> handleAjaxExport granted (fromJust maybeArgs) --WARNING
-          _        -> respondUnknownAjaxError
--}
+
 type Arguments = B.ByteString
 type Command = B.ByteString
 handleAjaxCommand :: D.SharedKey        -- ^ megosztási kulcs
@@ -261,62 +177,62 @@ handleAjaxCommand key maybeArgs command = do
     case accessRes of
       Nothing        -> respondUnknownAjaxError
       Just accessRes -> case command of
-                  "init"   -> handleAjaxInitialCheckout accessRes
-                  "update" -> maybe respondUnknownAjaxError (handleAjaxContentUpdate accessRes) maybeArgs 
+--                  "init"   -> handleAjaxInitialCheckout accessRes
+                  "update" -> maybe respondUnknownAjaxError (handleAjaxUpdate accessRes) maybeArgs 
                   "share"  -> maybe respondUnknownAjaxError (handleAjaxShare accessRes) maybeArgs
                   "export" -> maybe respondUnknownAjaxError (handleAjaxExport accessRes) maybeArgs
                   _        -> respondUnknownAjaxError
 
 --------------------------------------------------------------------------------
 -- | Kezelőfüggvényeket rendel a webes útvonalakhoz 
--- Visszatérési értéke egy (Útvonal, Kezelő) alakú párokból álló lista
 routes :: [(B.ByteString, AppHandler ())]
 routes = [ ("/", ifTop handleIndex)
          , ("/new", handleNew)
-         , ("/:sk/",handleDocument)
+         , ("/:sk/",handleDocumentLink)
          , ("/download/", serveDirectory "download")
          , ("/static/", serveDirectory "static" )
+--         , ("", redirect "/") --ha semmire sem illeszkedik, irányítsuk a főoldalra
          ]    
     
-handleDocument = do 
+
+handleDocumentLink :: AppHandler ()
+handleDocumentLink = do 
     skbs <- getParam "sk" >>= return . fromJust
-    maybeArgs <- getParam "args"
     case D.decodeSharedKey skbs of
-        Nothing -> notFoundDialog $ decodeUtf8 skbs
-        Just sk -> do
-            maybeCmd <- getParam "cmd"
-            case maybeCmd of
-                Nothing  -> handleOpen sk
-                Just cmd -> handleAjaxCommand sk maybeArgs cmd
+      Nothing -> notFoundDialog $ decodeUtf8 skbs
+      Just sk -> do
+          maybeArgs <- getParam "args"
+          getParam "cmd" >>= maybe (handleOpen sk) (handleAjaxCommand sk maybeArgs)
 
 
 --------------------------------------------------------------------------------
 -- | Inicializálja az alkalmazást
 app :: SnapletInit App App
-app = makeSnaplet "app" "An snaplet example application." Nothing $ do
+app = makeSnaplet "docsnap" "DocSnap MultiUser Text Editing application." Nothing $ do
     h <- nestSnaplet "heist" heist $ heistInit' "templates" $
       mempty { hcLoadTimeSplices = defaultLoadTimeSplices }
-    v <- nestSnaplet "versioncontrol" versionControl $ vcInit
-    a <- nestSnaplet "accessprovider" accessProvider $ accProvInit
+    j <- nestSnaplet "ajaxsync" ajaxSync $ initAjaxSynchronize
+    v <- nestSnaplet "versioncontrol" versionControl $ D.initVersionControl
+    a <- nestSnaplet "accessprovider" accessProvider $ D.initAccessProvider
     addRoutes routes
     addSplices
       [ ("exporters", exportersSplice)
       , ("formatting", formattingSplice)
       , ("heiststyles", cssSplice)]
-    return $ App h v a --d
+    return $ App h j v a
 
 
---------------------------------------------------------------------------------
--- | Ismeretlen hiba jelzése AJAX kérés esetén
-respondUnknownAjaxError :: (MonadSnap m) => m ()
-respondUnknownAjaxError = writeBS $ serialize $ ErrorAjaxResponse "The service encountered an unknown error."
 
 --------------------------------------------------------------------------------
--- | Egyszerű konverziós függvény
+-- | segédfüggvények
 bsToStr :: B.ByteString -> String
 bsToStr =  T.unpack . decodeUtf8
 
 writeJSON :: (A.ToJSON a, MonadSnap m) => a -> m ()
 writeJSON = writeBS . serialize
+
+notFoundDialog sk = getServerURL sk >>= \url -> 
+  renderErrorDialog ("The following document doesn't exist:\\n" ++ T.unpack url) "ok"
+notFoundDialogSK = notFoundDialog . T.pack . UUID.toString
 
 

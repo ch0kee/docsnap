@@ -16,7 +16,7 @@ import Control.Monad.Trans (MonadIO)
 import  qualified Data.Text as T 
 import  Data.Aeson.TH
 --------------------------------------------------------------------------------
-import  DocSnap.Snap.Splices (bulletListSplice, HasHeist, SnapletISplice)
+import  DocSnap.Splices (bulletListSplice, HasHeist, SnapletISplice)
 --------------------------------------------------------------------------------
 
 

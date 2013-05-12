@@ -12,7 +12,6 @@ module DocSnap.Serialize
   ) where
 
 import  Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import  DocSnap.Internal.Types
 import  qualified Data.Text as T
 import  qualified Data.Aeson as A
 --import  qualified Data.Aeson.Generic as A
@@ -41,5 +40,5 @@ bsToLbs = BL.pack . B.unpack
 
 -- | JSON reprezentációk automatikus generálása
 
-$(deriveJSON (drop 18) ''ErrorAjaxResponse)
+
 

@@ -4,7 +4,7 @@
 -- | Splice konstruktorok a Snap keretrendszerhez.
 -- Ezek azok a kis "szeletek", amiket be lehet szúrni a Html
 -- kódba. 
-module DocSnap.Snap.Splices
+module DocSnap.Splices
   ( HasHeist
   , SnapletISplice
   , bulletListSplice

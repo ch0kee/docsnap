@@ -6,7 +6,7 @@
 
 --------------------------------------------------------------------------------
 -- | Ez a backend egyszerű szöveges formátumba exportálja az adatot 
-module DocSnap.Export.Converter.Backends.TxtConverter
+module DocSnap.Converter.Backends.TxtConverter
   ( render
   , displayName
   , TxtConverter(..)  
@@ -15,7 +15,7 @@ module DocSnap.Export.Converter.Backends.TxtConverter
 --------------------------------------------------------------------------------
 import Text.HTML.TagSoup (canonicalizeTags, parseTags, Tag(..))
 --------------------------------------------------------------------------------
-import DocSnap.Export.Converter
+import DocSnap.Converter
 --------------------------------------------------------------------------------
 
 

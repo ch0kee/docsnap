@@ -25,3 +25,4 @@ class IConverter a
     render :: a -> String -> String
     -- ^ konvertáló rutin, ez végzi az átalakítást
 
+

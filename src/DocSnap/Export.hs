@@ -18,8 +18,8 @@ import Control.Monad.Trans (MonadIO)
 import  qualified Data.Text as T 
 import  Data.Aeson.TH
 --------------------------------------------------------------------------------
-import  DocSnap.Internal.Utilities (writeToRandomFile)
-import  DocSnap.Snap.Splices (bulletListSplice, HasHeist, SnapletISplice)
+import  DocSnap.Utilities (writeToRandomFile)
+import  DocSnap.Splices (bulletListSplice, HasHeist, SnapletISplice)
 import  DocSnap.Export.Converter
 import  DocSnap.Export.Converter.Backends.TxtConverter
 import  DocSnap.Export.Converter.Backends.HtmlConverter
