@@ -49,7 +49,7 @@ data Access l a = Access l a
   
 --------------------------------------------------------------------------------
 -- | Hozzáférés entitáshoz
-tryAccess :: (Show k, Ord k) => k -> Handler b (AccessProvider k l a) (Maybe (Access l a))
+tryAccess :: (Ord k) => k -> Handler b (AccessProvider k l a) (Maybe (Access l a))
 tryAccess key = do
     am <- gets (readMVar . accessMap)
     liftIO am >>= return . M.lookup key 

@@ -5,7 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 --------------------------------------------------------------------------------
--- | Ez a backend html formátumban, azaz egy az egyben visszaadja a szöveget 
+-- | Ez a backend html formátumú konverziót végzi
 module DocSnap.Converter.Backends.HtmlConverter
   ( render
   , displayName
@@ -14,15 +14,18 @@ module DocSnap.Converter.Backends.HtmlConverter
   
 --------------------------------------------------------------------------------
 import DocSnap.Converter
+import DocSnap.Formatting
+import  qualified Data.Text as T 
 --------------------------------------------------------------------------------
 
-
---------------------------------------------------------------------------------
--- | HtmlConverter konstruktor
+-- | Nagyon leegyszerűsített html konverzió
 data HtmlConverter = HtmlConverter
 instance IConverter HtmlConverter
   where
     displayName = const "html file"
-    render _ = id
+    render _ content = "<html><head>"++css++"</head><body>"++maindiv++"</body></html>"
+      where
+        maindiv = "<div style=\"white-space:pre\">"++content++"</div>"
+        css = "<style type=\"text/css\">" ++ T.unpack formatCss ++ "</style>"
 
-
+ 

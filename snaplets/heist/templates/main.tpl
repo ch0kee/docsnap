@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8">
     <title>DocSnap</title>
+
+    
     <heiststyles />
     <link rel="stylesheet" type="text/css" href="/static/css/screen.css"/>
     <link rel="stylesheet" type="text/css" href="/static/css/styles.css"/>
@@ -25,6 +27,21 @@
     <heistscripts />
   </head>
   <body spellcheck="false">
+      
+    <noscript>
+ <div style="position: fixed; top: 0px; left: 0px; z-index: 3000; 
+                height: 100%; width: 100%; background-color: #FFFFFF">
+    <p> The service requires JavaScript. </p>
+    <p> Please try enabling JavaScript in your browser settings
+    or make sure you use one of the following browsers:</p>
+    <ul>
+      <li>Mozila Firefox 20.0 or newer </li>
+      <li>Google Chrome 26.0.1410.63 or newer</li>
+      <li>Opera 12.15 or newer</li>
+    </ul>
+    </div>
+    </noscript>
+  
     <ul id="sharemenu">
       <li data-type="author">with authors</li>
       <li data-type="reader">with readers</li>

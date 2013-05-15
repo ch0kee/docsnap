@@ -29,12 +29,10 @@ import           Control.Monad.Trans.Maybe
 import  qualified Data.Aeson as A
 --------------------------------------------------------------------------------
 import           Application
---import           DocSnap.Repository
 
 import Data.UUID as UUID
 import Snap.Snaplet.Session
 
-import  Debug.Trace
 
 import DocSnap.Serialize (serialize, deserialize)
 import Data.Monoid (mempty)
@@ -79,7 +77,7 @@ handleOpen :: D.SharedKey     -- ^ az URL-ből kapott megosztókulcs
 handleOpen key = do
     acc <- with accessProvider $ D.tryAccess key
     case acc of
-      Nothing -> notFoundDialogSK key
+      Nothing -> notFoundDialog $ D.encodeSharedKey key
       Just (D.Access level _) -> renderWithSplices "main"
         [ ("heistscripts", javascriptsSplice "/static/js/" (scripts level) )
         , ("image", iconSplice (icon level) 20)]
@@ -151,14 +149,15 @@ handleAjaxAuthorShare (D.Access level doc) = do
 -- gombhoz tartozik ez a kezelő. Feladata a választott formátumnak megfelelő
 -- fájl előállítása, és az URL visszaküldése a felhasználónak.
 handleAjaxExport :: D.DocumentAccess    -- ^ dokumentumhozzáférés
+                 -> D.SharedKey       -- ^ exportált fájl neve
                  -> Arguments         -- ^ export kimenet leírása
                  -> AppHandler ()
-handleAjaxExport (D.Access _ doc) json = do
+handleAjaxExport (D.Access _ doc) key json = do
     case deserialize json of
       Nothing -> respondUnknownAjaxError
       Just exportRequest -> do
           content <- D.rawContent doc
-          exportResponse <- liftIO $ runExport exportRequest content
+          exportResponse <- liftIO $ runExport exportRequest (D.encodeSharedKey key)  content
           writeJSON $ exportResponse
 
 
@@ -180,7 +179,7 @@ handleAjaxCommand key maybeArgs command = do
 --                  "init"   -> handleAjaxInitialCheckout accessRes
                   "update" -> maybe respondUnknownAjaxError (handleAjaxUpdate accessRes) maybeArgs 
                   "share"  -> maybe respondUnknownAjaxError (handleAjaxShare accessRes) maybeArgs
-                  "export" -> maybe respondUnknownAjaxError (handleAjaxExport accessRes) maybeArgs
+                  "export" -> maybe respondUnknownAjaxError (handleAjaxExport accessRes key) maybeArgs
                   _        -> respondUnknownAjaxError
 
 --------------------------------------------------------------------------------
@@ -225,14 +224,12 @@ app = makeSnaplet "docsnap" "DocSnap MultiUser Text Editing application." Nothin
 
 --------------------------------------------------------------------------------
 -- | segédfüggvények
-bsToStr :: B.ByteString -> String
-bsToStr =  T.unpack . decodeUtf8
-
 writeJSON :: (A.ToJSON a, MonadSnap m) => a -> m ()
 writeJSON = writeBS . serialize
 
+-- | nem található a dokumentum
+notFoundDialog :: T.Text -> AppHandler ()
 notFoundDialog sk = getServerURL sk >>= \url -> 
   renderErrorDialog ("The following document doesn't exist:\\n" ++ T.unpack url) "ok"
-notFoundDialogSK = notFoundDialog . T.pack . UUID.toString
 
 

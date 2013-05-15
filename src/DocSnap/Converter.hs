@@ -1,10 +1,9 @@
 --------------------------------------------------------------------------------
 {-# LANGUAGE GADTs #-}
 --------------------------------------------------------------------------------
--- | Minden, az IExporter osztályt megvalósító típusEbben a modulban találhatóak
--- az elkészült tartalmak tetszőleges
--- formátumba történő kiexportálásához végző típusok
-module DocSnap.Export.Converter where
+-- | az IConverter interfészt megvalósító típus az elkészült tartalmat tetszőleges
+-- formátumba konvertálhatja
+module DocSnap.Converter where
 
 
 --------------------------------------------------------------------------------

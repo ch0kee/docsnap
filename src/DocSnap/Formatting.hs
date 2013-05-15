@@ -8,6 +8,7 @@
 module DocSnap.Formatting
   ( formattingSplice
   , cssSplice
+  , formatCss
   ) where
   
 --------------------------------------------------------------------------------
@@ -38,9 +39,9 @@ data Formatting = Formatting { text :: T.Text }
 -- | Felhasznált CSS stílusok 
 formatCss :: T.Text
 formatCss = T.concat
-  [ ".ds_bold { font-weight: bold; }"
-  , ".ds_italic { font-style: italic; }"
-  , ".ds_underline { text-decoration:underline; }"
+  [ ".ds_bold { font-weight: bold; } "
+  , ".ds_italic { font-style: italic; } "
+  , ".ds_underline { text-decoration:underline; } "
   ]
 
 

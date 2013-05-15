@@ -250,48 +250,10 @@ par (R n:ls, P m:rs) = ([], [R k])    .+. par (_R (n-k) ls, _P (m-k) rs)
 par (P n:ls, R m:rs) = ([R k], [])    .+. par (_P (n-k) ls, _R (m-k) rs)
   where k = min m n
 
-par (xs, ys) = trace ("incompatible edit scripts" ++ (show xs) ++ (show ys) ) ([],[])
+--par (xs, ys) = trace ("incompatible edit scripts" ++ (show xs) ++ (show ys) ) ([],[])
 
 
-
-testPar :: [PackedEdit] -> [PackedEdit] -> [PackedEdit] -> IO ()
-testPar base s1 s2 = do
-  putStrLn $ "s1=" ++ show s1 
-  putStrLn $ "s2=" ++ show s2 
-  putStrLn $ "base=" ++ show (extract base) 
-  putStrLn $ "base$s1=" ++ show (extract $ seqMerge base s1) 
-  putStrLn $ "base$s2=" ++ show (extract $ seqMerge base s2) 
-  let (p1, p2) = parMerge (s1,s2)
-  putStrLn $ "parMerge(s1,s2)=" ++ show (p1,p2) 
-  putStrLn $ "base$s1$p1=" ++ show (extract $ seqMerge (seqMerge base s1) p1)
-  putStrLn $ "base$s2$p2=" ++ show (extract $ seqMerge (seqMerge base s2) p2)
-  
-  
-wrongData =  ([P 1,I "9"],([R 2,I "e"],[I "h6WF",P 1,I "x",P 1]))
-
-
-
-
-
-wrongBase = fst wrongData
-
---wrongEdits = snd wrongData
-wrongEdits = snd wrongData
-
-  
---parMerge = ([P 2,R 4,I "5LcVATlGNpAa0866"],[I "f",P 17])
-
-t1 = seqMerge (fst wrongEdits) (fst pp)
-t2 = seqMerge (snd wrongEdits) (snd pp)
-
-tt1 = (seqMerge (seqMerge wrongBase (fst wrongEdits)) (fst pp))
-
-tt2 = (seqMerge (seqMerge wrongBase (snd wrongEdits)) (snd pp))
-
-pp = parMerge wrongEdits
-
-base1 = [I "0123456789"]
-
+-- | Teszteléshez szükséges eszközök
 
 extract :: [PackedEdit] -> String
 extract [I str] = str
@@ -329,8 +291,7 @@ instance Arbitrary Edit where
           return $ R len
 
 arbitrarySequence = do    
-    --utolsó edit hossza
-    lastLen <- choose (0, 4) :: Gen Int --end number of pieces
+    lastLen <- choose (0, 4) :: Gen Int --utolsó edit hossza
     first <- liftM flatten $ suchThat arbitrary  ((==lastLen) . newLength) 
     second <- liftM flatten $ suchThat arbitrary  ((==oldLength first) . newLength) 
     third <- liftM flatten $ suchThat arbitrary  ((==oldLength second) . newLength) 
@@ -364,14 +325,13 @@ equivalent (es1) (es2) = prettify es1 == prettify es2
  
 
 arbitraryForParSeq = do    
-    --első edit hossza
-    headLen <- choose (0, 4) :: Gen Int --first
+   
+    headLen <- choose (0, 4) :: Gen Int  --első edit hossza
     base <- suchThat arbitrary  ((==headLen) . oldLength) 
     second1 <- suchThat arbitrary  ((==newLength base) . oldLength) 
     second2 <- suchThat arbitrary  ((==newLength base) . oldLength) 
     return (flatten base, ( flatten second1, flatten second2))
     
---a parMerge olyan legyen, hogy össze
 
 prop_parsequ1 = forAll arbitraryForParSeq $ \(b,(s1,s2)) -> let (p1, p2) = parMerge (s1, s2) in
       (seqMerge (seqMerge b s1) p1) `equivalent` (seqMerge (seqMerge b s2) p2)
@@ -382,10 +342,4 @@ prop_parsequ2 = forAll arbitraryForParSeq $ \(b,(s1,s2)) -> let (p1, p2) = parMe
       (seqMerge2 (seqMerge2 b s1) p1) == (seqMerge2 (seqMerge2 b s2) p2)
 
 runTests = $quickCheckAll
-
---quickCheck prop_associative
---verboseCheck
---prop_minimum' xs         = not (null xs) ==> head (qsort xs) == minimum xs
---prop_sort_model xs      = sort xs == qsort xs
---sample' arbitrary :: IO [PackedEdit]
 

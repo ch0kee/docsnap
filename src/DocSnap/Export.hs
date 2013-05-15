@@ -18,11 +18,11 @@ import Control.Monad.Trans (MonadIO)
 import  qualified Data.Text as T 
 import  Data.Aeson.TH
 --------------------------------------------------------------------------------
-import  DocSnap.Utilities (writeToRandomFile)
+import  DocSnap.Utilities (writeToRandomDir)
 import  DocSnap.Splices (bulletListSplice, HasHeist, SnapletISplice)
-import  DocSnap.Export.Converter
-import  DocSnap.Export.Converter.Backends.TxtConverter
-import  DocSnap.Export.Converter.Backends.HtmlConverter
+import  DocSnap.Converter
+import  DocSnap.Converter.Backends.TxtConverter
+import  DocSnap.Converter.Backends.HtmlConverter
 --------------------------------------------------------------------------------
 
 
@@ -37,13 +37,13 @@ converters = [MkConverter TxtConverter, MkConverter HtmlConverter]
 -- | Exportálási kérés futtatása. Amennyiben nem jár sikerrel,
 -- egy üres linket küld vissza.
 runExport :: ExportRequest     -- ^ export kérés
+          -> T.Text            -- ^ kimeneti fájl neve
           -> String            -- ^ exportálandó tartalom
           -> IO ExportResponse -- ^ létrejött fájl
-runExport (ExportRequest index) content = do
+runExport (ExportRequest index) key content = do
     case listToMaybe (drop index converters) of
       Nothing        -> return $ ExportResponse ""
-      Just converter -> ExportResponse `fmap` exportToRandomFile content converter "download"
-
+      Just (MkConverter converter) -> ExportResponse `fmap` writeToRandomDir (T.unpack key) "download" (render converter content)
 
 --------------------------------------------------------------------------------
 -- | Exportálási kérés, a hálózaton keresztül érkezik.        
@@ -56,17 +56,6 @@ newtype ExportRequest = ExportRequest
 newtype ExportResponse = ExportResponse
     { exportResponse_url :: String }
     
-
---------------------------------------------------------------------------------
--- | Tartalom exportálása véletlen nevű fájlba.
-exportToRandomFile :: String      -- ^ tartalom
-                   -> Converter    -- ^ exportáló
-                   -> FilePath    -- ^ ebbe a könyvtárba kerül a kész fájl
-                   -> IO FilePath -- ^ létrejött fájl elérési útvonala
-exportToRandomFile content (MkConverter converter) dir =
-    writeToRandomFile dir $ render converter content
-
-
 --------------------------------------------------------------------------------
 -- | Az export menü dinamikus felépítését generálja a weboldalhoz.
 exportersSplice :: (HasHeist b) => SnapletISplice b

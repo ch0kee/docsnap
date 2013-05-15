@@ -7,7 +7,7 @@
 module DocSnap.Utilities
   ( getServerURL
   , isAjaxRequest
-  , writeToRandomFile
+  , writeToRandomDir
   , locateMapKey
   ) where
   
@@ -18,10 +18,11 @@ import           Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import    System.FilePath (FilePath, combine)
 import    System.IO (IO, putStrLn)
 import    Data.Char (chr)
-import           System.Directory (doesFileExist)
+import           System.Directory
 import           Control.Monad.Random (evalRandIO, getRandomRs)
 import  Control.Monad.Trans (liftIO, MonadIO)
 import qualified Data.Map as M
+import Debug.Trace
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
@@ -59,33 +60,41 @@ isAjaxRequest = do
 
 
 --------------------------------------------------------------------------------
--- | szöveg írása véletlen nevű fájlba.
--- dir: könyvtárba, content: ezt írjuk bele, visszatér a létrejött fájllal
-writeToRandomFile :: FilePath -> String -> IO FilePath
-writeToRandomFile dir content = do
+-- | szöveg írása a mappán belüli véletlen nevű almappába,
+-- a megadott fájlnévvel
+writeToRandomDir :: FilePath     -- ^ fájlnév
+                  -> FilePath     -- ^ mappa 
+                  -> String       -- ^ tartalom
+                  -> IO FilePath
+writeToRandomDir fname dir content = do
+    unlessM (doesDirectoryExist dir) (createDirectory dir)
     digits <- generateRandomDigits
-    path <- searchUniqueFile dir digits
-    writeFile path content
-    return path
+    randompath <- searchUniqueDir dir digits
+    createDirectory randompath
+    let filepath = combine randompath fname
+    writeFile filepath content
+    return filepath
   where
-    searchUniqueFile :: FilePath -> FilePath -> IO FilePath
-    searchUniqueFile dir digits = do
+    searchUniqueDir :: FilePath -> FilePath -> IO FilePath
+    searchUniqueDir dir digits = do
         let randomPath = combine dir $ take 10 digits
-        exists <- doesFileExist randomPath
-        if exists then searchUniqueFile dir $ tail digits
-                  else return randomPath
+        ifM (doesDirectoryExist randomPath) (searchUniqueDir dir $ tail digits) (return randomPath)
     generateRandomDigits :: IO [Char]
     generateRandomDigits = evalRandIO (getRandomRs (48,57)) >>= return . map chr
 
-
+-- | segédfüggvények
 locateMapKey :: Eq a => a -> M.Map k a -> Maybe k
 locateMapKey v m = locateMapKey' . dropWhile ((/=v) . snd)  $  M.toList m
   where
     locateMapKey' [] = Nothing
     locateMapKey' (x:_) = Just (fst x)
     
-logDSS :: (MonadIO m) => String -> m ()
-logDSS s = liftIO $ putStrLn ("** " ++ s)
+ifM :: Monad m => m Bool -> m a -> m a -> m a
+ifM test actionTrue actionFalse = test >>= \t -> if t then actionTrue else actionFalse
 
-rlogDSS :: (MonadIO m) => String -> m ()
-rlogDSS s = logDSS s
+whenM :: Monad m => m Bool -> m a -> m ()
+whenM test actionTrue = ifM test (actionTrue >> return ()) $ return ()
+
+unlessM :: Monad m => m Bool -> m a -> m ()
+unlessM test actionFalse = ifM test (return ()) (actionFalse >> return ())
+

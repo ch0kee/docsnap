@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 --------------------------------------------------------------------------------
+-- | VersionControl modul. Egy verziókezelőt implementál.
 module DocSnap.VersionControl
   ( update
   , chat
@@ -18,7 +19,6 @@ import Control.Monad.Trans
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.TH
-import Debug.Trace
 import           Snap.Snaplet
 import           Control.Monad.State 
 import DocSnap.VersionControl.Merge
@@ -40,13 +40,12 @@ data Revision = Revision
   , editScript :: [Edit] }
     deriving(Show)
 
-
 --------------------------------------------------------------------------------
 -- | Verziókezelő snaplet inicializálása.
 initVersionControl :: SnapletInit b (VersionControl)
 initVersionControl = makeSnaplet "vc" "Version Control Snaplet" Nothing $ do
-    repos <- liftIO $ newMVar []
-    return $ VersionControl repos
+    docs <- liftIO $ newMVar []
+    return $ VersionControl docs
 
 -- | a dokumentum nyers, legfrissebb verzió szerinti szövegét adja vissza
 rawContent :: (MonadIO m)
@@ -69,7 +68,11 @@ createDocument = do
         return (d:docs, d)
   where
     emptyDocument :: IO Document
-    emptyDocument = liftM2 Document (newMVar [ Revision 0 [] ]) (newMVar [])
+    emptyDocument = liftM2 Document (newMVar [ Revision 0 [I welcomeString] ]) (newMVar [])
+    -- | Ez a szöveg van kezdetben a szerkesztőben
+    welcomeString :: String
+    welcomeString = "Welcome to DocSnap!\nYou can now start editing this text."
+    
     
 --------------------------------------------------------------------------------
 -- | Revíziók rögzítése,
@@ -117,12 +120,8 @@ latestVersion rs = version (last rs)
 after :: Version -> [Revision] -> [Revision]
 after v rs = dropWhile (\r -> (version r) <= v) rs
 
-data SingleEdit = SI Char | SP | SR
-  deriving (Show) 
 
-    
-
-    -- | Chat üzenet
+-- | Chat üzenet
 data ChatMessage = ChatMessage
     { cm_sender :: String
     , cm_message :: String }
