@@ -100,5 +100,5 @@ data ShareResponse = ShareResponse
   deriving(Show)
 
 
-$(deriveJSON (drop 14) ''ShareResponse)
-$(deriveJSON (drop 13) ''ShareRequest)
+$(deriveJSON defaultOptions{fieldLabelModifier=drop 14} ''ShareResponse)
+$(deriveJSON defaultOptions{fieldLabelModifier=drop 13} ''ShareRequest)

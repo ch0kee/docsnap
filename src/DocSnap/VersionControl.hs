@@ -157,12 +157,12 @@ data ChatSyncData = ChatSyncData
   deriving(Show)
 
     
-$(deriveJSON id ''Edit)
-$(deriveJSON id ''Revision)
-$(deriveJSON (drop 3) ''ChatMessage)
-$(deriveJSON id ''UpdateResponse)
-$(deriveJSON id ''Request)
-$(deriveJSON (drop 4) ''ChatSyncData)
+$(deriveJSON defaultOptions ''Edit)
+$(deriveJSON defaultOptions ''Revision)
+$(deriveJSON defaultOptions{fieldLabelModifier=drop 3} ''ChatMessage)
+$(deriveJSON defaultOptions ''UpdateResponse)
+$(deriveJSON defaultOptions ''Request)
+$(deriveJSON defaultOptions{fieldLabelModifier=drop 4} ''ChatSyncData)
 
   
   
